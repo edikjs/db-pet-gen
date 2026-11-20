@@ -1,0 +1,50 @@
+{
+  "name": "db-pet-gen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Topic-only database and documented code-skeleton generator",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "jest --runInBand",
+    "lint:check": "eslint src --max-warnings=0",
+    "format:check": "prettier --check src README.md AGENTS.md",
+    "lint": "eslint src --fix",
+    "format": "prettier --write src README.md AGENTS.md",
+    "phoenix:up": "docker compose up -d phoenix",
+    "phoenix:down": "docker compose down",
+    "prepare": "git config --local core.hooksPath .githooks"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@arizeai/openinference-instrumentation-langchain": "^4.2.2",
+    "@arizeai/phoenix-otel": "^3.1.1",
+    "@langchain/core": "^1.4.2",
+    "@langchain/langgraph": "^1.7.5",
+    "@langchain/langgraph-checkpoint-sqlite": "^1.1.1",
+    "@langchain/openai": "^1.8.4",
+    "any-ascii": "^0.3.3",
+    "chalk": "^6.0.1",
+    "commander": "^15.1.0",
+    "dotenv": "^18.0.10",
+    "ora": "^10.0.0",
+    "pele": "^1.13.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jest": "^30.5.2",
+    "prettier": "^3.10.1",
+    "ts-jest": "^29.4.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}

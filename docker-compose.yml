@@ -1,0 +1,15 @@
+services:
+  phoenix:
+    image: arizephoenix/phoenix:20.21.4
+    container_name: db-pet-gen-phoenix
+    ports:
+      - '6006:6006'
+      - '4317:4317'
+    environment:
+      - PHOENIX_WORKING_DIR=/mnt/data
+      - PHOENIX_ENABLE_AUTH=false
+    volumes:
+      - phoenix-data:/mnt/data
+
+volumes:
+  phoenix-data:
