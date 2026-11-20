@@ -1,15 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppConfig } from '../../config';
-import { createChatModel, type GenerationModel } from '../../llm';
+import { createChatModel } from '../../llm';
 import { createRunWorkspace, openRunWorkspace } from '../../io';
 import { initObservability } from '../../adapters/observability';
-import {
-  buildPipeline,
-  GRAPH_VERSION,
-  type PipelineEvent,
-  type PipelineResult,
-} from './graph';
+import { buildPipeline, GRAPH_VERSION } from './graph';
+import type {
+  GenerateOptions,
+  ResumeOptions,
+  RunOptions,
+  RunResult,
+} from './types';
 import {
   ManifestSchema,
   RunRecorder,
@@ -17,28 +18,6 @@ import {
   writeManifest,
   type RunManifest,
 } from './lifecycle';
-
-export interface RunResult {
-  runId: string;
-  workspace: string;
-  readmePath: string;
-  state: PipelineResult;
-}
-
-export interface RunOptions {
-  config: AppConfig;
-  model?: GenerationModel;
-  onProgress?: (event: PipelineEvent) => void;
-}
-
-export interface GenerateOptions extends RunOptions {
-  topic: string;
-  onRunStarted?: (runId: string, workspace: string) => void;
-}
-
-export interface ResumeOptions extends RunOptions {
-  runId: string;
-}
 
 function threadConfig(runId: string) {
   return { configurable: { thread_id: runId } };
@@ -74,10 +53,10 @@ async function execute(
   resume: boolean,
 ): Promise<RunResult> {
   let handle: ReturnType<typeof openRunCheckpointer> | undefined;
-  let observability: Awaited<ReturnType<typeof initObservability>>;
+  let observability: ReturnType<typeof initObservability>;
   try {
     handle = openRunCheckpointer(recorder.workspace);
-    observability = await initObservability(options.config.observability);
+    observability = initObservability(options.config.observability);
     const graph = buildPipeline({
       model: options.model ?? createChatModel(options.config.chat),
       workspace: recorder.workspace,

@@ -1,10 +1,6 @@
 import { codePlan, dataModel, seedData } from '../../test-support/fixture';
-import {
-  DataModelSchema,
-  verifyCodePlan,
-  verifyDataModel,
-  verifySeedData,
-} from './schema';
+import { DataModelSchema } from './schema';
+import { verifyCodePlan, verifyDataModel, verifySeedData } from './verify';
 
 describe('structured artifact checks', () => {
   it('accepts a matching schema, seed and operations', () => {

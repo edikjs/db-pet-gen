@@ -1,30 +1,18 @@
 import { z } from 'zod';
+import type { AppConfig, ChatProvider } from './types';
 
-const CHAT_PROVIDERS = ['openrouter', 'opencode', 'groq'] as const;
+/**
+ * How often a refused model call is retried when `LLM_MAX_RETRIES` is unset.
+ * The client's waits grow exponentially instead of repeating the provider's
+ * fixed "try again in N seconds" hint.
+ */
+export const DEFAULT_LLM_MAX_RETRIES = 6;
 
-export type ChatProvider = (typeof CHAT_PROVIDERS)[number];
-
-export interface ChatModelConfig {
-  provider: ChatProvider;
-  model: string;
-  baseUrl: string;
-  temperature: number;
-  jsonMode: boolean;
-  apiKey?: string;
-  maxTokens?: number;
-  maxRetries?: number;
-  maxConcurrency?: number;
-}
-
-export interface AppConfig {
-  chat: ChatModelConfig;
-  runsDir: string;
-  observability: {
-    provider: 'none' | 'phoenix';
-    endpoint: string;
-    projectName: string;
-  };
-}
+const CHAT_PROVIDERS = [
+  'openrouter',
+  'opencode',
+  'groq',
+] as const satisfies readonly ChatProvider[];
 
 const BASE_URLS: Record<ChatProvider, string> = {
   openrouter: 'https://openrouter.ai/api/v1',
@@ -64,7 +52,7 @@ const EnvSchema = z.object({
   LLM_MAX_TOKENS: numberFromEnv.pipe(z.number().int().positive()).default(8192),
   LLM_MAX_RETRIES: numberFromEnv
     .pipe(z.number().int().nonnegative())
-    .default(6),
+    .default(DEFAULT_LLM_MAX_RETRIES),
   LLM_MAX_CONCURRENCY: numberFromEnv
     .pipe(z.number().int().positive())
     .optional(),

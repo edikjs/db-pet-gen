@@ -1,23 +1,13 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
 import ora from 'ora';
-import { loadConfig, type AppConfig } from '../config';
+import { loadConfig } from '../config';
 import {
   resumeRun,
   runGenerate,
-  type GenerateOptions,
-  type ResumeOptions,
-  type RunResult,
   type PipelineEvent,
 } from '../workflows/generate';
-
-export interface CliDependencies {
-  load?: () => AppConfig;
-  generate?: (options: GenerateOptions) => Promise<RunResult>;
-  resume?: (options: ResumeOptions) => Promise<RunResult>;
-  write?: (line: string) => void;
-  error?: (line: string) => void;
-}
+import type { CliDependencies } from './types';
 
 function formatError(error: unknown): string {
   const messages: string[] = [];

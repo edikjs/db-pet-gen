@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { appendFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { PipelineEvent } from '../graph';
+import type { PipelineEvent } from '../types';
 
 export const ManifestSchema = z.object({
   version: z.number().int(),

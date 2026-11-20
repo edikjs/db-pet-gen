@@ -1,1 +1,1 @@
-export { main, buildProgram, type CliDependencies } from './run';
+export { main, buildProgram } from './run';

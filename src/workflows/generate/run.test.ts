@@ -68,35 +68,41 @@ describe('a topic-only generation run', () => {
     expect(model.calls).toEqual(['plan', 'schema', 'seed', 'code']);
   });
 
-  it('logs a recovered model validation failure without losing the run', async () => {
+  it('recovers from a model validation failure without losing the run', async () => {
     class FlakySeedModel extends FixtureModel {
+      seedCalls = 0;
       private first = true;
       override async invoke(messages: BaseMessage[]): Promise<BaseMessage> {
         const answer = await super.invoke(messages);
-        if (String(messages[0]?.content).includes('STAGE:seed') && this.first) {
-          this.first = false;
-          const invalid = {
-            tables: [
-              { table: 'owners', rows: [{ id: 1, name: 'Ada' }] },
-              {
-                table: 'pets',
-                rows: [{ id: 10, owner_id: 999, name: 'Milo' }],
-              },
-            ],
-          };
-          return new AIMessage(JSON.stringify(invalid));
+        if (String(messages[0]?.content).includes('STAGE:seed')) {
+          this.seedCalls += 1;
+          if (this.first) {
+            this.first = false;
+            const invalid = {
+              tables: [
+                { table: 'owners', rows: [{ id: 1, name: 'Ada' }] },
+                {
+                  table: 'pets',
+                  rows: [{ id: 10, owner_id: 999, name: 'Milo' }],
+                },
+              ],
+            };
+            return new AIMessage(JSON.stringify(invalid));
+          }
         }
         return answer;
       }
     }
+    const model = new FlakySeedModel();
     const result = await runGenerate({
       topic: 'Pet records',
       config: configFor(root),
-      model: new FlakySeedModel(),
+      model,
     });
     const log = await readFile(join(result.workspace, 'events.jsonl'), 'utf8');
-    expect(log).toContain('"kind":"model_retry"');
-    expect(log).toContain('Unresolved foreign key');
+    expect(model.seedCalls).toBe(2);
+    expect(log).toContain('"kind":"stage_finished"');
+    expect(log).not.toContain('"kind":"stage_failed"');
   });
 
   it('resumes the failed stage without repeating completed model calls', async () => {

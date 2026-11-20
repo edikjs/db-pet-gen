@@ -36,8 +36,10 @@ LLM_API_KEY=your-key
 Supported providers are `openrouter`, `opencode`, and `groq`.
 `LLM_BASE_URL` selects an alternative endpoint; all providers require
 `LLM_API_KEY`. Optional `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`,
-`LLM_MAX_RETRIES`, and `LLM_MAX_CONCURRENCY` control the client. No key is
-stored in a run manifest or event log. A resume requires the same
+`LLM_MAX_RETRIES`, and `LLM_MAX_CONCURRENCY` control the client. Refused calls
+back off exponentially, and a refused rate limit is reported instead of
+spending corrective retries on a conversation the model never saw. No key is
+stored in a run manifest, event log, or diagnostic. A resume requires the same
 provider/model/endpoint/temperature in `.env` as the original run. Edit `.env`
 and start a new run to switch models.
 
@@ -56,7 +58,7 @@ artifacts/runs/<run-id>/
     code/services.ts           Operations from the checked plan
     code/queries.sql           Key queries
   run.json                     Status, model identity, current stage
-  events.jsonl                 Timestamped progress/retry/error log
+  events.jsonl                 Timestamped stage event log
   checkpoints.db              LangGraph SQLite checkpoints for resume
   qa-report.json              Validation and SQL smoke-check results
 ```
@@ -93,7 +95,7 @@ again. `resume` refuses completed runs and runs owned by a live process.
 src/
   cli/                      Commander commands and terminal progress
   config/                   Environment and model settings
-  llm/                      Provider client and validated JSON requests
+  llm/                      Provider client, rate limits and validated JSON requests
   project/
     plan/                   Topic-specific project plan
     database/               Data, seed and operation contracts and checks
@@ -108,6 +110,7 @@ src/
       code/                 TypeScript code skeleton
       markdown/             Main README and ER diagram
   adapters/observability/   Optional Phoenix tracing
+  utils/                    Shared type guards
   test-support/             Offline fixtures
 ```
 
@@ -116,7 +119,7 @@ Each module has an `index.ts` barrel and colocated tests.
 ## Observability and development
 
 Progress appears on stderr (spinner on a terminal; plain stage lines in
-redirected logs). `events.jsonl` is the persistent event log. Phoenix tracing
+redirected logs). `events.jsonl` is the persistent stage event log. Phoenix tracing
 is optional:
 
 ```sh

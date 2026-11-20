@@ -1,5 +1,1 @@
-export {
-  initObservability,
-  type ObservabilityConfig,
-  type ObservabilityHandle,
-} from './observability';
+export { initObservability } from './observability';

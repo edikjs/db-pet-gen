@@ -263,12 +263,12 @@ describe('renderReadme', () => {
       '`books.author_id` → `authors.id` (required parent; many children per parent)',
     );
     expect(markdown).toContain(
-      '| author_id | INTEGER | No | authors.id | No | No | — | The author. |',
+      '`author_id` — INTEGER; PK: No; FK: authors.id; nullable: No; unique: No; default: —; description: The author.',
     );
     expect(markdown).toContain(
       '`idx_books_author` on `author_id` (non-unique)',
     );
-    expect(markdown).toContain('| books | 2 |');
+    expect(markdown).toContain('`books`: 2 seed rows');
     expect(markdown).toContain('### authors records');
     expect(markdown).toContain('"Mira"');
     expect(markdown).toContain(
@@ -347,16 +347,16 @@ describe('renderReadme', () => {
       },
     });
     expect(markdown).toContain(
-      '# Library \\| &lt;script&gt;alert\\(1\\)&lt;/script&gt;',
+      '# Library | \\&lt;script\\&gt;alert(1)\\&lt;/script\\&gt;',
     );
     expect(markdown).toContain(
-      'Records \\| with &lt;script&gt;alert\\(1\\)&lt;/script&gt;',
+      'Records | with \\&lt;script\\&gt;alert(1)\\&lt;/script\\&gt;',
     );
     expect(markdown).toContain(
-      'Title \\| \\[bad\\]\\(https://bad.example\\) next line',
+      'Title | \\[bad]\\(https://bad.example) next line',
     );
     expect(markdown).toContain(
-      'SQLite \\| driver &lt;script&gt;evil&lt;/script&gt;',
+      'SQLite | driver \\&lt;script\\&gt;evil\\&lt;/script\\&gt;',
     );
     expect(markdown).toContain(
       '`````sql\nSELECT id FROM books\n````\n[bad](https://bad.example)\n`````',

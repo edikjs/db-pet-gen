@@ -2,11 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import anyAscii from 'any-ascii';
-
-export interface RunWorkspace {
-  runId: string;
-  root: string;
-}
+import type { RunWorkspace } from './types';
 
 function nameRun(topic: string): string {
   const slug =

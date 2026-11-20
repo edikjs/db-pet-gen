@@ -1,6 +1,6 @@
 export {
-  RunRecorder,
   ManifestSchema,
+  RunRecorder,
   writeManifest,
   type RunManifest,
 } from './runState';

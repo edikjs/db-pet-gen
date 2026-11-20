@@ -1,4 +1,5 @@
-import { loadConfig, type ChatProvider } from './env';
+import { loadConfig } from './env';
+import type { ChatProvider } from './types';
 
 const validEnv = {
   LLM_PROVIDER: 'openrouter',

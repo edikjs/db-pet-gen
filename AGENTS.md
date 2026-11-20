@@ -18,7 +18,7 @@ scripts, a TypeScript code skeleton, and an ER diagram inside
 ## Modules
 
 - `src/config/` — validated model/run/tracing config from `.env`.
-- `src/llm/` — provider-agnostic chat model and structured JSON retries.
+- `src/llm/` — OpenAI-compatible chat model and structured JSON retries.
 - `src/project/plan/` — the topic-specific project plan contract.
 - `src/project/database/` — database/code contracts and deterministic checks.
 - `src/workflows/generate/` — LangGraph stages: plan, schema, seed, operations,
@@ -29,12 +29,40 @@ scripts, a TypeScript code skeleton, and an ER diagram inside
   SQL, code and Markdown/ER renderers.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
 - `src/adapters/observability/` — optional Phoenix tracing.
+- `src/utils/` — shared type guards.
 - `src/test-support/` — network-free fake model and valid fixture.
+
+Before implementing a common concern (parsing, validation, collections,
+redaction, and similar), check npm first. Prefer a popular, well-maintained
+library over a hand-written implementation; hand-roll only when no suitable
+library exists or the dependency would be disproportionate. Avoid libraries
+whose last release is more than two years old unless they are still widely
+used today.
 
 Model responses provide **structured data**. Do not let model text write
 arbitrary paths, raw TypeScript, or Markdown links. Code and Markdown render
 from checked data. The generated SQLite driver is an illustrative skeleton;
 do not claim generated code is a runnable PostgreSQL application.
+
+- Render Markdown and Mermaid from checked data with libraries, not by
+  concatenating ad-hoc strings.
+- Antipattern: pass-through wrappers. Do not create a one-line function that
+  only renames a library call (for example `camelName` around `camelCase`).
+  Call the library directly and keep functions only when they encode a real
+  decision, format, or domain concept.
+- No hand-written regular expressions in production code — use a library.
+- No spaghetti: no long functions made of multiple `if`/`for` blocks and no
+  chains of ternary operators. Keep decisions in data or in small named
+  functions with one responsibility.
+- Prefer typed structures (a Markdown AST, a layout config) and functional
+  composition (`.map`, `.filter`, `.flatMap`) in small focused modules.
+- `src/io/renderers/markdown/markdownRenderer.ts` is only a thin entry point.
+
+Keep named types and interfaces in a `types.ts` file in their module folder.
+Types derived from a Zod schema (`z.infer<typeof ...>`, `typeof SomeSchema.State`)
+may stay beside that schema instead. Implementation files import their types
+from `types.ts`. Export only symbols that are actually imported somewhere — no
+unused exports in implementation files, `types.ts` files or `index.ts` barrels.
 
 Use `index.ts` barrels for cross-folder imports; tests live beside their
 implementation. Never log API keys. Keep the root `README.md` and this file aligned with

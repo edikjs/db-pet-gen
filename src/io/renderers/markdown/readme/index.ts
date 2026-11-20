@@ -1,0 +1,1 @@
+export { renderReadme } from './readme';
