@@ -74,9 +74,8 @@ instance is started or claimed as tested.
 
 ## Failures and resume
 
-Each model stage proposes structured data; Zod and deterministic checks reject
-inconsistent schema, foreign keys, seed rows, or code operations. A rejected
-answer receives corrective feedback. Final output is assembled in code;
+Each model stage proposes structured data; Zod rejects malformed answers and
+gives the model corrective feedback. Final output is assembled in code;
 Mermaid is rendered in-process, Markdown links and required sections are
 checked, and files are written only after the SQL smoke check passes. When a
 stage fails, the run id, stage, error and resume command are printed; `run.json`
@@ -96,9 +95,9 @@ src/
   cli/                      Commander commands and terminal progress
   config/                   Environment and model settings
   llm/                      Provider client, rate limits and validated JSON requests
-  project/
-    plan/                   Topic-specific project plan
-    database/               Data, seed and operation contracts and checks
+  shared/
+    schemas/                Shared types and schemas
+    utils/                  Shared error helpers
   workflows/generate/
     lifecycle/              Run manifest, event log and checkpoints
     graph.ts                Generation stages
@@ -110,7 +109,6 @@ src/
       code/                 TypeScript code skeleton
       markdown/             Main README and ER diagram
   adapters/observability/   Optional Phoenix tracing
-  utils/                    Shared type guards
   test-support/             Offline fixtures
 ```
 

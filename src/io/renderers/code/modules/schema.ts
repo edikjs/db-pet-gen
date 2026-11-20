@@ -1,4 +1,4 @@
-import type { DataColumn, DataModel, DataTable } from '../../../../project';
+import type { DataColumn, DataModel, DataTable } from '../../../../shared';
 import {
   joinLines,
   objectFields,

@@ -1,7 +1,7 @@
 import { QuoteUtils } from '@pgsql/quotes';
 import { escape as escapeHtml } from 'es-toolkit';
 import { collapse } from 'string-collapse-white-space';
-import type { SeedValue } from '../../../project';
+import type { SeedValue } from '../../../shared';
 import type { OptionalLine } from './types';
 
 const LABELS: Readonly<Record<string, string>> = { true: 'Yes', false: 'No' };

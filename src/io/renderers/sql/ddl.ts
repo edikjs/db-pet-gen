@@ -1,4 +1,4 @@
-import type { DataIndex, DataModel, DataTable } from '../../../project';
+import type { DataIndex, DataModel, DataTable } from '../../../shared';
 import { separated, Source } from '../shared/source';
 import { oneLine, present, when } from '../shared/text';
 import { columnBlock, commentSuffix } from './columns';

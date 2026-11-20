@@ -4,7 +4,7 @@ import type {
   DataModel,
   ProjectPlan,
   SeedData,
-} from '../../../project';
+} from '../../../shared';
 
 export type SmokeStatus = 'passed' | 'failed' | 'skipped';
 

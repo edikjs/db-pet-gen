@@ -1,12 +1,11 @@
-import { keyBy } from 'es-toolkit';
+import { isPlainObject, keyBy } from 'es-toolkit';
 import sqlParser from 'node-sql-parser';
-import { isRecord } from '../../../utils';
 import type {
   CodeOperation,
   DataColumn,
   DataModel,
   DataTable,
-} from '../../../project';
+} from '../../../shared';
 import type { OperationInfo, StatementKind } from './types';
 
 const parser = new sqlParser.Parser();
@@ -19,11 +18,15 @@ function cleanStatement(statement: string): string {
 }
 
 /** The parsed root of a checked statement, when the parser understands it. */
-function statementNode(statement: string): Record<string, unknown> | undefined {
+function statementNode(
+  statement: string,
+): Record<PropertyKey, unknown> | undefined {
   try {
     const ast = parser.astify(statement, DIALECT);
     const root = Array.isArray(ast) ? ast[0] : ast;
-    return isRecord(root) ? root : undefined;
+    return isPlainObject(root)
+      ? (root as unknown as Record<PropertyKey, unknown>)
+      : undefined;
   } catch {
     return undefined;
   }
@@ -34,7 +37,7 @@ function hasNode(root: unknown, type: string): boolean {
   const queue: unknown[] = [root];
   while (queue.length > 0) {
     const node = queue.shift();
-    if (!isRecord(node)) continue;
+    if (!isPlainObject(node)) continue;
     if (node.type === type) return true;
     Object.values(node).forEach((child) => queue.push(child));
   }
@@ -42,7 +45,7 @@ function hasNode(root: unknown, type: string): boolean {
 }
 
 function statementKind(
-  node: Record<string, unknown> | undefined,
+  node: Record<PropertyKey, unknown> | undefined,
 ): StatementKind {
   if (node === undefined || typeof node.type !== 'string') return 'unknown';
   const kinds: readonly StatementKind[] = [
@@ -97,7 +100,7 @@ function parameterColumns(
 
 /** True when a SELECT returns only the columns of one checked table. */
 function isSimpleSelect(
-  node: Record<string, unknown> | undefined,
+  node: Record<PropertyKey, unknown> | undefined,
   kind: StatementKind,
 ): boolean {
   if (kind !== 'select') return false;

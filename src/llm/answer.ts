@@ -1,5 +1,5 @@
 import type { BaseMessage } from '@langchain/core/messages';
-import { isRecord } from '../utils';
+import { isPlainObject } from 'es-toolkit';
 
 /**
  * The helpers that read an answer of the model.
@@ -24,7 +24,7 @@ export function messageText(message: BaseMessage): string {
       if (typeof block === 'string') {
         return block;
       }
-      if (isRecord(block) && 'text' in block) {
+      if (isPlainObject(block) && 'text' in block) {
         const { text } = block;
         return typeof text === 'string' ? text : '';
       }
@@ -42,7 +42,7 @@ export function parseJsonObject(text: string): Record<string, unknown> | null {
   }
   try {
     const parsed: unknown = JSON.parse(text.slice(start, end + 1));
-    return isRecord(parsed) ? parsed : null;
+    return isPlainObject(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -63,7 +63,7 @@ export function unwrapEnvelope(
     return value;
   }
   const properties = value.properties;
-  if (isRecord(properties) && keys.some((key) => key in properties)) {
+  if (isPlainObject(properties) && keys.some((key) => key in properties)) {
     return properties;
   }
   return value;

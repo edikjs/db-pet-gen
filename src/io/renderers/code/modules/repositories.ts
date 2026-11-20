@@ -1,5 +1,5 @@
 import { camelCase } from 'es-toolkit';
-import type { DataColumn, DataModel, DataTable } from '../../../../project';
+import type { DataColumn, DataModel, DataTable } from '../../../../shared';
 import { repositoryName, rowTypeName, singular } from '../../shared/naming';
 import {
   joinLines,

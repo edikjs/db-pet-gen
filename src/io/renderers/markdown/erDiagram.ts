@@ -1,4 +1,4 @@
-import type { DataColumn, DataModel, DataTable } from '../../../project';
+import type { DataColumn, DataModel, DataTable } from '../../../shared';
 import { isPlainIdentifier } from '../shared/naming';
 import { separated, Source } from '../shared/source';
 import { when } from '../shared/text';

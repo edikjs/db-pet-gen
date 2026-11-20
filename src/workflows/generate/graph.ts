@@ -10,12 +10,9 @@ import {
   DataModelSchema,
   ProjectPlanSchema,
   SeedDataSchema,
-  verifyCodePlan,
-  verifyDataModel,
-  verifySeedData,
   type CodePlan,
   type DataModel,
-} from '../../project';
+} from '../../shared';
 import { requestJson, type JsonOutcome } from '../../llm';
 import {
   renderDdl,
@@ -146,7 +143,6 @@ export function buildPipeline(options: PipelineOptions) {
             schema: DataModelSchema,
             keys: Object.keys(DataModelSchema.shape),
             emptyError: EMPTY_JSON_ERROR,
-            verify: verifyDataModel,
             corrective: correctiveReply,
             attempts: STAGE_ATTEMPTS,
           }),
@@ -168,7 +164,6 @@ export function buildPipeline(options: PipelineOptions) {
             schema: SeedDataSchema,
             keys: Object.keys(SeedDataSchema.shape),
             emptyError: EMPTY_JSON_ERROR,
-            verify: (candidate) => verifySeedData(candidate, database),
             corrective: correctiveReply,
             attempts: STAGE_ATTEMPTS,
           }),
@@ -199,7 +194,6 @@ export function buildPipeline(options: PipelineOptions) {
             schema: CodePlanSchema,
             keys: Object.keys(CodePlanSchema.shape),
             emptyError: EMPTY_JSON_ERROR,
-            verify: (candidate) => verifyCodePlan(candidate, database),
             corrective: correctiveReply,
             attempts: STAGE_ATTEMPTS,
           }),

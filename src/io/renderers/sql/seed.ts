@@ -4,7 +4,7 @@ import type {
   DataTable,
   SeedData,
   SeedValue,
-} from '../../../project';
+} from '../../../shared';
 import { joinLines, separated, Source } from '../shared/source';
 import { sqlLiteral } from '../shared/text';
 

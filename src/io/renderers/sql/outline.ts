@@ -1,4 +1,4 @@
-import type { DataModel } from '../../../project';
+import type { DataModel } from '../../../shared';
 import { Source } from '../shared/source';
 import { columnOutline, commentSuffix } from './columns';
 

@@ -1,4 +1,4 @@
-import type { CodeFile } from '../../../project';
+import type { CodeFile } from '../../../shared';
 import { CODE_LAYOUT } from './layout';
 import {
   databaseModule,

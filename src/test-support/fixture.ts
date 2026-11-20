@@ -1,6 +1,6 @@
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import type { GenerationModel } from '../llm';
-import type { CodePlan, DataModel, ProjectPlan, SeedData } from '../project';
+import type { CodePlan, DataModel, ProjectPlan, SeedData } from '../shared';
 
 export const projectPlan: ProjectPlan = {
   title: 'Pet records',

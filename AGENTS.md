@@ -19,8 +19,8 @@ scripts, a TypeScript code skeleton, and an ER diagram inside
 
 - `src/config/` — validated model/run/tracing config from `.env`.
 - `src/llm/` — OpenAI-compatible chat model and structured JSON retries.
-- `src/project/plan/` — the topic-specific project plan contract.
-- `src/project/database/` — database/code contracts and deterministic checks.
+- `src/shared/schemas/` — shared types and schemas.
+- `src/shared/utils/` — shared error helpers.
 - `src/workflows/generate/` — LangGraph stages: plan, schema, seed, operations,
   documentation+smoke QA, publish; run entry and resume.
 - `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
@@ -29,7 +29,6 @@ scripts, a TypeScript code skeleton, and an ER diagram inside
   SQL, code and Markdown/ER renderers.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
 - `src/adapters/observability/` — optional Phoenix tracing.
-- `src/utils/` — shared type guards.
 - `src/test-support/` — network-free fake model and valid fixture.
 
 Before implementing a common concern (parsing, validation, collections,

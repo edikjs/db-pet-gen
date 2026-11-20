@@ -2,8 +2,8 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { ChatOpenAI } from '@langchain/openai';
 import { DEFAULT_LLM_MAX_RETRIES } from '../config';
 import type { ChatModelConfig } from '../config';
-import { errorMessage, reportDiagnostic } from '../utils/errors';
-import { isRecord } from '../utils';
+import { isObject } from 'es-toolkit/compat';
+import { errorMessage, reportDiagnostic } from '../shared';
 
 /**
  * The chat model the stages use, built from the shared LLM config.
@@ -43,8 +43,8 @@ function withRetryBackoff(model: BaseChatModel): BaseChatModel {
   caller.onFailedAttempt = (error: unknown) => {
     reportDiagnostic('Model call failed', errorMessage(error));
     const outcome = defaultHandler?.(error);
-    if (isRecord(error)) {
-      delete error.retryAfterMs;
+    if (isObject(error)) {
+      delete (error as { retryAfterMs?: number }).retryAfterMs;
     }
     return outcome;
   };

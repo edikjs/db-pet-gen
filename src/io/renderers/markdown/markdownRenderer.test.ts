@@ -5,7 +5,7 @@ import {
   SeedDataSchema,
   type CodeFile,
   type DataModel,
-} from '../../../project';
+} from '../../../shared';
 import { lintReadme, renderErDiagram, renderReadme } from './markdownRenderer';
 
 const model = DataModelSchema.parse({

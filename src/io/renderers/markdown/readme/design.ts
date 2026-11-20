@@ -1,4 +1,4 @@
-import type { DataColumn, DataIndex, DataTable } from '../../../../project';
+import type { DataColumn, DataIndex, DataTable } from '../../../../shared';
 import { yesNo } from '../../shared/text';
 import {
   blocks,

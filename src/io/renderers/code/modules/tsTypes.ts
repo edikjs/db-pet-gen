@@ -1,4 +1,4 @@
-import type { DataColumn } from '../../../../project';
+import type { DataColumn } from '../../../../shared';
 
 /** The TypeScript type of a checked column. */
 const COLUMN_TYPES: Record<DataColumn['type'], string> = {

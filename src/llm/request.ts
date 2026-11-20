@@ -4,7 +4,7 @@ import {
   type BaseMessage,
 } from '@langchain/core/messages';
 import type { z } from 'zod';
-import { errorMessage, redact } from '../utils/errors';
+import { errorMessage, redact } from '../shared';
 import { messageText, parseJsonObject, unwrapEnvelope } from './answer';
 import { isRateLimitError, rateLimitFailure } from './rateLimit';
 import type { JsonOutcome, JsonRequest } from './types';

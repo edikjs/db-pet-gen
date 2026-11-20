@@ -4,7 +4,7 @@ import type {
   DataColumn,
   DataModel,
   DataTable,
-} from '../../../project';
+} from '../../../shared';
 
 /** One file of the code skeleton: its id, its path and its summary. */
 export interface CodeFileDescriptor {

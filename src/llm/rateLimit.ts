@@ -1,5 +1,6 @@
-import { isRecord } from '../utils';
-import { errorMessage, redact } from '../utils/errors';
+import { isPlainObject } from 'es-toolkit';
+import { isObject } from 'es-toolkit/compat';
+import { errorMessage, redact } from '../shared';
 
 /**
  * How the stages recognise a provider that refused a call for now.
@@ -29,15 +30,16 @@ const RATE_LIMIT_SIGNALS = [
 
 /** The HTTP status of a failed call, wherever the client attached it. */
 function statusOf(error: unknown): number | undefined {
-  if (!isRecord(error)) {
+  if (!isObject(error)) {
     return undefined;
   }
-  const status = error.status ?? error.statusCode;
+  const candidate = error as Record<string, unknown>;
+  const status = candidate.status ?? candidate.statusCode;
   if (typeof status === 'number') {
     return status;
   }
-  const response = error.response;
-  if (isRecord(response) && typeof response.status === 'number') {
+  const response = candidate.response;
+  if (isPlainObject(response) && typeof response.status === 'number') {
     return response.status;
   }
   return undefined;

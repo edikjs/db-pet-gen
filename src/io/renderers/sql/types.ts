@@ -1,4 +1,4 @@
-import type { DataColumn } from '../../../project';
+import type { DataColumn } from '../../../shared';
 
 /** One optional fragment of a column definition. */
 export interface ColumnClause {

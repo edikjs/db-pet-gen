@@ -1,5 +1,5 @@
 import { camelCase, uniq } from 'es-toolkit';
-import type { DataTable } from '../../../../project';
+import type { DataTable } from '../../../../shared';
 import { rowTypeName } from '../../shared/naming';
 import {
   joinLines,

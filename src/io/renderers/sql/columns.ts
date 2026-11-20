@@ -1,4 +1,4 @@
-import type { DataColumn } from '../../../project';
+import type { DataColumn } from '../../../shared';
 import { concatenated, joinLines, separated } from '../shared/source';
 import { oneLine, present, when } from '../shared/text';
 import type { ColumnClause } from './types';
