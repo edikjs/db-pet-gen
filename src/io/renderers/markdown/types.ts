@@ -1,3 +1,4 @@
+import type { BlockContent, PhrasingContent } from 'mdast';
 import type {
   CodeFile,
   CodePlan,
@@ -52,87 +53,45 @@ export interface ReadmeContext {
   readonly seedCounts: ReadonlyMap<string, number>;
 }
 
-/** A README section returns typed markdown nodes, never raw prose. */
+/** A README section returns typed mdast nodes, never raw prose. */
 export type ReadmeSection = (context: ReadmeContext) => readonly BlockNode[];
 
-export interface TextNode {
-  readonly type: 'text';
-  readonly value: string;
-}
+/** mdast types are the single source of truth for generated Markdown. */
+export type BlockNode = BlockContent;
+export type InlineNode = PhrasingContent;
 
-export interface InlineCodeNode {
-  readonly type: 'inlineCode';
-  readonly value: string;
-}
+/** A key marker of a Mermaid ER attribute. */
+export type MermaidErKey = 'PK' | 'FK' | 'UK';
 
-export interface StrongNode {
-  readonly type: 'strong';
-  readonly children: readonly InlineNode[];
-}
+/** A crow's-foot cardinality of a Mermaid ER relationship. */
+export type MermaidErCardinality = '||' | 'o|' | 'o{';
 
-export interface LinkNode {
-  readonly type: 'link';
-  readonly url: string;
-  readonly children: readonly InlineNode[];
-}
-
-export type InlineNode = TextNode | InlineCodeNode | StrongNode | LinkNode;
-
-export interface HeadingNode {
-  readonly type: 'heading';
-  readonly depth: number;
-  readonly children: readonly InlineNode[];
-}
-
-export interface ParagraphNode {
-  readonly type: 'paragraph';
-  readonly children: readonly InlineNode[];
-}
-
-export interface CodeBlockNode {
-  readonly type: 'code';
-  readonly lang: string;
-  readonly value: string;
-}
-
-export interface ListItemNode {
-  readonly type: 'listItem';
-  readonly children: readonly BlockNode[];
-}
-
-export interface ListNode {
-  readonly type: 'list';
-  readonly ordered: boolean;
-  readonly spread: boolean;
-  readonly children: readonly ListItemNode[];
-}
-
-export type BlockNode = HeadingNode | ParagraphNode | CodeBlockNode | ListNode;
-
-/** One entity of the typed ER diagram. */
-export interface ErAttribute {
+/** One attribute of a Mermaid ER entity. */
+export interface MermaidErAttribute {
   readonly type: string;
   readonly name: string;
-  readonly keys: readonly string[];
+  readonly keys: readonly MermaidErKey[];
 }
 
-/** One entity of the typed ER diagram. */
-export interface ErEntity {
+/** One entity of a Mermaid ER diagram. */
+export interface MermaidErEntity {
   readonly name: string;
-  readonly attributes: readonly ErAttribute[];
+  readonly attributes: readonly MermaidErAttribute[];
 }
 
-/** One foreign-key relationship of the typed ER diagram. */
-export interface ErRelationship {
-  readonly parent: string;
-  readonly child: string;
-  readonly column: string;
-  readonly parentCardinality: string;
-  readonly childCardinality: string;
+/** One foreign-key relationship of a Mermaid ER diagram. */
+export interface MermaidErRelationship {
+  readonly left: string;
+  readonly right: string;
+  readonly leftCard: MermaidErCardinality;
+  readonly rightCard: MermaidErCardinality;
+  readonly identifying: boolean;
+  readonly label: string;
 }
 
-/** The typed source of a Mermaid ER diagram. */
-export interface ErDiagram {
-  readonly entities: readonly ErEntity[];
-  readonly relationships: readonly ErRelationship[];
+/** The typed AST the Mermaid printer serializes. */
+export interface MermaidErDiagram {
+  readonly diagram: 'er';
+  readonly entities: readonly MermaidErEntity[];
+  readonly relationships: readonly MermaidErRelationship[];
 }

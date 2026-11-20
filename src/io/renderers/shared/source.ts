@@ -12,10 +12,6 @@ export class Source {
     return this.add([line]);
   }
 
-  blank(): this {
-    return this.append('');
-  }
-
   toString(): string {
     return joinLines(this.content);
   }
@@ -32,19 +28,4 @@ export function separated(
   separator: string,
 ): string {
   return values.join(separator);
-}
-
-/** Concatenates fragments without a separator. */
-export function concatenated(values: readonly string[]): string {
-  return values.join('');
-}
-
-/** Renders the fields of a generated object literal, one field per line. */
-export function objectFields(
-  fields: readonly { readonly name: string; readonly value: string }[],
-  indent: string,
-): string {
-  return joinLines(
-    fields.map((field) => `${indent}${field.name}: ${field.value},`),
-  );
 }

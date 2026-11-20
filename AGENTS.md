@@ -26,7 +26,8 @@ scripts, a TypeScript code skeleton, and an ER diagram inside
 - `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
   SQLite checkpoints.
 - `src/io/workspace.ts` and `src/io/renderers/` — run paths and deterministic
-  SQL, code and Markdown/ER renderers.
+  Kysely-compiled SQL, `ts-poet`-emitted code, and `mdast`/`remark`-backed
+  Markdown/ER renderers.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
 - `src/adapters/observability/` — optional Phoenix tracing.
 - `src/test-support/` — network-free fake model and valid fixture.

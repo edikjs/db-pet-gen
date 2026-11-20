@@ -1,5 +1,1 @@
-export {
-  renderDdl,
-  renderSeedScript,
-  renderSchemaOutline,
-} from './sqlRenderer';
+export { renderDdl, renderSeedScript } from './sqlRenderer';

@@ -1,24 +1,16 @@
+import { toMermaid } from '@jarenjs/mermaid';
 import type { DataColumn, DataModel, DataTable } from '../../../shared';
 import { isPlainIdentifier } from '../shared/naming';
-import { separated, Source } from '../shared/source';
-import { when } from '../shared/text';
-import type { ErAttribute, ErDiagram, ErEntity, ErRelationship } from './types';
-
-const MERMAID_TYPES = new Set<DataColumn['type']>([
-  'INTEGER',
-  'BIGINT',
-  'SMALLINT',
-  'REAL',
-  'NUMERIC',
-  'TEXT',
-  'VARCHAR',
-  'BOOLEAN',
-  'DATE',
-  'TIMESTAMP',
-]);
+import type {
+  MermaidErCardinality,
+  MermaidErDiagram,
+  MermaidErEntity,
+  MermaidErKey,
+  MermaidErRelationship,
+} from './types';
 
 const KEY_TOKENS: readonly {
-  readonly token: string;
+  readonly token: MermaidErKey;
   readonly applies: (column: DataColumn) => boolean;
 }[] = [
   { token: 'PK', applies: (column) => column.primaryKey },
@@ -26,12 +18,16 @@ const KEY_TOKENS: readonly {
   { token: 'UK', applies: (column) => column.unique },
 ];
 
-const PARENT_CARDINALITY: Readonly<Record<string, string>> = {
+const PARENT_CARDINALITY: Readonly<
+  Record<'required' | 'optional', MermaidErCardinality>
+> = {
   required: '||',
   optional: 'o|',
 };
 
-const CHILD_CARDINALITY: Readonly<Record<string, string>> = {
+const CHILD_CARDINALITY: Readonly<
+  Record<'many' | 'one', MermaidErCardinality>
+> = {
   many: 'o{',
   one: 'o|',
 };
@@ -57,9 +53,12 @@ function safeNames(names: readonly string[], prefix: string): string[] {
 }
 
 /** The attributes of one entity, with their key markers. */
-function attributes(table: DataTable, names: readonly string[]): ErAttribute[] {
+function attributes(
+  table: DataTable,
+  names: readonly string[],
+): MermaidErEntity['attributes'] {
   return table.columns.map((column, index) => ({
-    type: MERMAID_TYPES.has(column.type) ? column.type : 'UNKNOWN',
+    type: column.type,
     name: names[index],
     keys: KEY_TOKENS.filter((key) => key.applies(column)).map(
       (key) => key.token,
@@ -77,7 +76,7 @@ function relationships(
   model: DataModel,
   tableNames: readonly string[],
   columnNames: readonly (readonly string[])[],
-): ErRelationship[] {
+): MermaidErRelationship[] {
   const firstTableNames = new Map<string, string>();
   model.tables.forEach((table, index) => {
     if (!firstTableNames.has(table.name)) {
@@ -94,25 +93,26 @@ function relationships(
 
       return [
         {
-          parent,
-          child: tableNames[index],
-          column: columnNames[index][columnIndex],
-          parentCardinality:
+          left: parent,
+          right: tableNames[index],
+          leftCard:
             PARENT_CARDINALITY[column.nullable ? 'optional' : 'required'],
-          childCardinality:
+          rightCard:
             CHILD_CARDINALITY[
               column.unique || (column.primaryKey && solePrimaryKey(table))
                 ? 'one'
                 : 'many'
             ],
+          identifying: true,
+          label: columnNames[index][columnIndex],
         },
       ];
     }),
   );
 }
 
-/** The typed ER diagram built from checked schema data. */
-function buildDiagram(model: DataModel): ErDiagram {
+/** The typed ER AST built from checked schema data. */
+function buildDiagram(model: DataModel): MermaidErDiagram {
   const tableNames = safeNames(
     model.tables.map((table) => table.name),
     'entity',
@@ -123,39 +123,19 @@ function buildDiagram(model: DataModel): ErDiagram {
       'column',
     ),
   );
-  const entities: ErEntity[] = model.tables.map((table, index) => ({
+  const entities: MermaidErEntity[] = model.tables.map((table, index) => ({
     name: tableNames[index],
     attributes: attributes(table, columnNames[index]),
   }));
 
   return {
+    diagram: 'er',
     entities,
     relationships: relationships(model, tableNames, columnNames),
   };
 }
 
-/** Renders the typed ER diagram as Mermaid source. */
+/** Renders the typed ER AST as Mermaid source. */
 export function renderErDiagram(model: DataModel): string {
-  const diagram = buildDiagram(model);
-  const source = new Source().append('erDiagram');
-
-  diagram.entities.forEach((entity) => {
-    source.append(`    ${entity.name} {`);
-    entity.attributes.forEach((attribute) => {
-      const keys = separated(attribute.keys, ', ');
-      source.append(
-        `        ${attribute.type} ${attribute.name}${
-          when(keys.length > 0, ` ${keys}`) ?? ''
-        }`,
-      );
-    });
-    source.append('    }');
-  });
-  diagram.relationships.forEach((relationship) => {
-    source.append(
-      `    ${relationship.parent} ${relationship.parentCardinality}--${relationship.childCardinality} ${relationship.child} : ${relationship.column}`,
-    );
-  });
-
-  return `${source}\n`;
+  return toMermaid(buildDiagram(model));
 }

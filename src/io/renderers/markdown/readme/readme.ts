@@ -1,4 +1,5 @@
-import { serialize } from '../serialize';
+import { toMarkdown } from 'mdast-util-to-markdown';
+import type { Root } from 'mdast';
 import type { ReadmeInput, ReadmeSection } from '../types';
 import { readmeContext } from './context';
 import { dataDictionarySection, designSection, erSection } from './design';
@@ -20,8 +21,12 @@ const SECTIONS: readonly ReadmeSection[] = [
   limitationsSection,
 ];
 
-/** The documented project, serialized from typed nodes. */
+/** The documented project, serialized by the mdast Markdown library. */
 export function renderReadme(input: ReadmeInput): string {
   const context = readmeContext(input);
-  return serialize(SECTIONS.flatMap((section) => section(context)));
+  const tree: Root = {
+    type: 'root',
+    children: SECTIONS.flatMap((section) => section(context)),
+  };
+  return `${toMarkdown(tree).trimEnd()}\n`;
 }

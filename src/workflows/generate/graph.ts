@@ -16,7 +16,6 @@ import {
 import { requestJson, type JsonOutcome } from '../../llm';
 import {
   renderDdl,
-  renderSchemaOutline,
   renderSeedScript,
   renderCodeFiles,
   lintReadme,
@@ -137,7 +136,7 @@ export function buildPipeline(options: PipelineOptions) {
             model: options.model,
             messages: [
               new HumanMessage(
-                `STAGE:schema\nDesign the PostgreSQL-compatible database for "${state.topic}". Plan: ${JSON.stringify(requireValue(state.plan, 'plan'))}.\nReturn a JSON object {"tables":[...]}, 2-8 tables. Each table: name (snake_case), comment (English), columns (nonempty), checks:[], indexes:[]. Every column: name, type (INTEGER|BIGINT|SMALLINT|REAL|NUMERIC|TEXT|VARCHAR|BOOLEAN|DATE|TIMESTAMP), primaryKey:boolean, nullable:boolean, unique:boolean, length:number|null, defaultValue:string|null, references:{"table":string,"column":string}|null, comment (English). Each index: name, columns:[...], unique:boolean, comment. Every table has a non-null primary key. List parent tables BEFORE referencing children, references point only to an earlier table's primary/unique column of the SAME type. At least one meaningful foreign key. Use safe SQL literals for defaults, or null; checks always []. Answer JSON only.`,
+                `STAGE:schema\nDesign the PostgreSQL-compatible database for "${state.topic}". Plan: ${JSON.stringify(requireValue(state.plan, 'plan'))}.\nReturn a JSON object {"tables":[...]}, 2-8 tables. Each table: name (snake_case), comment (English), columns (nonempty), checks:[], indexes:[]. Every column: name, type (INTEGER|BIGINT|SMALLINT|REAL|NUMERIC|TEXT|VARCHAR|BOOLEAN|DATE|TIMESTAMP), primaryKey:boolean, nullable:boolean, unique:boolean, length:number|null, defaultValue: a JSON string/number/boolean value (not SQL text) or null, references:{"table":string,"column":string}|null, comment (English). Each index: name, columns:[...], unique:boolean, comment. Every table has a non-null primary key. List parent tables BEFORE referencing children, references point only to an earlier table's primary/unique column of the SAME type. At least one meaningful foreign key. checks always []. Answer JSON only.`,
               ),
             ],
             schema: DataModelSchema,
@@ -158,7 +157,7 @@ export function buildPipeline(options: PipelineOptions) {
             model: options.model,
             messages: [
               new HumanMessage(
-                `STAGE:seed\nCreate realistic sample data for ${state.topic}.\nSchema:\n${renderSchemaOutline(database)}\nAnswer JSON {"tables":[{"table":"<table name>","rows":[{"column":value}]}]}. Include every table, 2-5 rows each, valid keys and cross-table references. INTEGER and NUMERIC values are JSON numbers; BOOLEAN values booleans; DATE/TIMESTAMP/TEXT/VARCHAR are strings. No SQL syntax in values. Answer JSON only.`,
+                `STAGE:seed\nCreate realistic sample data for ${state.topic}.\nChecked schema JSON:\n${JSON.stringify(database)}\nAnswer JSON {"tables":[{"table":"<table name>","rows":[{"column":value}]}]}. Include every table, 2-5 rows each, valid keys and cross-table references. INTEGER and NUMERIC values are JSON numbers; BOOLEAN values booleans; DATE/TIMESTAMP/TEXT/VARCHAR are strings. No SQL syntax in values. Answer JSON only.`,
               ),
             ],
             schema: SeedDataSchema,
@@ -170,8 +169,8 @@ export function buildPipeline(options: PipelineOptions) {
           'seed data',
         );
         const smoke = await smokeCheckSql(
-          renderDdl(database, state.topic),
-          renderSeedScript(seed, database, state.topic),
+          renderDdl(database),
+          renderSeedScript(seed, database),
           database,
         );
         if (smoke.status === 'failed')
@@ -188,7 +187,7 @@ export function buildPipeline(options: PipelineOptions) {
             model: options.model,
             messages: [
               new HumanMessage(
-                `STAGE:code\nPropose 2-12 useful pet-project data operations for ${state.topic}. Schema:\n${renderSchemaOutline(database)}\nReturn JSON {"operations":[{"name":"snake_case","title":"English description","tables":["table"],"parameters":["column"],"statement":"one SELECT, INSERT, UPDATE or DELETE statement"}]}. Named parameters are :column and each declared parameter must appear in the SQL. No semicolons inside the statement, no comments, no DDL. Mention every table listed in each operation. The TypeScript skeleton is rendered from these checked operations. Answer JSON only.`,
+                `STAGE:code\nPropose 2-12 useful pet-project data operations for ${state.topic}. Checked schema JSON:\n${JSON.stringify(database)}\nReturn JSON {"operations":[{"name":"snake_case","title":"English description","tables":["table"],"parameters":["column"],"statement":"one SELECT, INSERT, UPDATE or DELETE statement"}]}. Named parameters are :column and each declared parameter must appear in the SQL. No semicolons inside the statement, no comments, no DDL. Mention every table listed in each operation. The TypeScript skeleton is rendered from these checked operations. Answer JSON only.`,
               ),
             ],
             schema: CodePlanSchema,
@@ -200,8 +199,8 @@ export function buildPipeline(options: PipelineOptions) {
           'code plan',
         );
         const smoke = await smokeCheckSql(
-          renderDdl(database, state.topic),
-          renderSeedScript(seed, database, state.topic),
+          renderDdl(database),
+          renderSeedScript(seed, database),
           database,
           codePlan,
         );
@@ -216,8 +215,8 @@ export function buildPipeline(options: PipelineOptions) {
         const database = requireValue(state.database, 'database schema');
         const seed = requireValue(state.seed, 'seed data');
         const codePlan = requireValue(state.codePlan, 'code plan');
-        const ddl = renderDdl(database, state.topic);
-        const seedSql = renderSeedScript(seed, database, state.topic);
+        const ddl = renderDdl(database);
+        const seedSql = renderSeedScript(seed, database);
         const diagram = renderErDiagram(database);
         try {
           renderMermaid(diagram);

@@ -68,16 +68,20 @@ schema and relationship details, setup with `psql`, seed data, operations, and
 the code skeleton. Mermaid is embedded inline; a textual relationship
 description is included for viewers without Mermaid support. The **code
 skeleton is illustrative**: its SQLite driver is not a ready-to-run
-PostgreSQL application. SQL generation targets portable PostgreSQL syntax and
-is smoke-tested against in-memory SQLite where supported; no PostgreSQL
-instance is started or claimed as tested.
+PostgreSQL application. SQL scripts are compiled with Kysely, Markdown is
+serialized from `mdast` nodes, Mermaid ER source is printed from a typed AST
+with `@jarenjs/mermaid`, and the TypeScript skeleton is emitted with `ts-poet`;
+all are generated from checked data. SQL targets portable PostgreSQL
+syntax and is smoke-tested against in-memory SQLite where supported; no
+PostgreSQL instance is started or claimed as tested.
 
 ## Failures and resume
 
 Each model stage proposes structured data; Zod rejects malformed answers and
 gives the model corrective feedback. Final output is assembled in code;
-Mermaid is rendered in-process, Markdown links and required sections are
-checked, and files are written only after the SQL smoke check passes. When a
+Mermaid source is validated in-process, Markdown links and required sections are
+checked with `remark`, and files are written only after the SQL smoke check
+passes. When a
 stage fails, the run id, stage, error and resume command are printed; `run.json`
 and `events.jsonl` preserve the details:
 

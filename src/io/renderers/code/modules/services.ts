@@ -1,36 +1,11 @@
-import { camelCase, uniq } from 'es-toolkit';
-import type { DataTable } from '../../../../shared';
+import { camelCase } from 'es-toolkit';
+import { code, imp, joinCode, literalOf } from 'ts-poet';
+import type { Import } from 'ts-poet';
+import type { DataColumn } from '../../../../shared';
 import { rowTypeName } from '../../shared/naming';
-import {
-  joinLines,
-  objectFields,
-  separated,
-  Source,
-} from '../../shared/source';
-import { present, tsString, when } from '../../shared/text';
 import { analyzeOperation } from '../analysis';
 import type { OperationInfo, RenderCodeOptions, ServiceShape } from '../types';
-import { tsComment } from './comments';
-import { scriptType } from './tsTypes';
-
-const RETURN_TYPES: Record<ServiceShape, (row: string) => string> = {
-  nothing: () => 'void',
-  rows: (row) => `${row}[]`,
-  records: () => 'Record<string, unknown>[]',
-};
-
-const RESULT_TYPES: Record<ServiceShape, (row: string) => string> = {
-  nothing: () => 'unknown',
-  rows: (row) => row,
-  records: () => 'Record<string, unknown>',
-};
-
-/** True when the operation returns the typed rows of one checked table. */
-function hasTypedTable(
-  info: OperationInfo,
-): info is OperationInfo & { table: DataTable } {
-  return info.typedRow && info.table !== undefined;
-}
+import { scriptType } from './schema';
 
 /** The value a service function returns. */
 function shapeOf(info: OperationInfo): ServiceShape {
@@ -38,100 +13,81 @@ function shapeOf(info: OperationInfo): ServiceShape {
   return info.typedRow ? 'rows' : 'records';
 }
 
-/** The singular or plural word for a count. */
-function countWord(count: number, one: string, many: string): string {
-  return count === 1 ? one : many;
+/** The checked row type of one operation, when it has one. */
+function rowImport(info: OperationInfo): Import | undefined {
+  if (!info.typedRow || info.table === undefined) return undefined;
+  return imp(`t:${rowTypeName(info.table)}@./schema`);
 }
 
-/** One function of the business logic: one operation of the plan. */
-function service(info: OperationInfo): string {
-  const { operation, statement } = info;
-  const shape = shapeOf(info);
-  const row = info.table === undefined ? 'unknown' : rowTypeName(info.table);
-  const tables = separated(operation.tables.map(tsString), ', ');
-  const parameters = ['db: Database'].concat(
-    operation.parameters.map((name) => {
-      const column = info.columnByParameter.get(name);
-      const type = column === undefined ? 'unknown' : scriptType(column);
-      return `${camelCase(name)}: ${type}`;
-    }),
+/** The TypeScript type of one operation parameter. */
+function parameterType(column: DataColumn | undefined): string {
+  return column === undefined ? 'unknown' : scriptType(column);
+}
+
+/** The parameters of one service function. */
+function parameters(info: OperationInfo) {
+  const Database = imp('t:Database@./database');
+  const entries = info.operation.parameters.map(
+    (name) =>
+      code`${camelCase(name)}: ${parameterType(info.columnByParameter.get(name))}`,
   );
-  const bound = when(
-    operation.parameters.length > 0,
-    `,\n    {\n${objectFields(
-      operation.parameters.map((name) => ({
-        name,
-        value: camelCase(name),
-      })),
-      '      ',
-    )}\n    }`,
+  return joinCode([code`db: ${Database}`, ...entries], { on: ', ' });
+}
+
+/** The element type of a service that returns rows. */
+function elementType(info: OperationInfo, row: Import | undefined) {
+  if (shapeOf(info) === 'rows' && row !== undefined) return row;
+  return code`Record<string, unknown>`;
+}
+
+/** The return type of one service function. */
+function returnType(info: OperationInfo, row: Import | undefined) {
+  if (shapeOf(info) === 'nothing') return code`void`;
+  return code`${elementType(info, row)}[]`;
+}
+
+/** The named bindings of one statement, when it has parameters. */
+function parameterBindings(info: OperationInfo) {
+  const names = info.operation.parameters;
+  if (names.length === 0) return undefined;
+  return literalOf(
+    Object.fromEntries(names.map((name) => [name, code`${camelCase(name)}`])),
   );
-  const binds = when(
-    operation.parameters.length > 0,
-    ` and binds the parameter${countWord(
-      operation.parameters.length,
-      '',
-      's',
-    )} ${separated(operation.parameters.map(tsString), ', ')}`,
-  );
-  const description = separated(
-    [
-      `The statement ${info.reads ? 'reads' : 'writes'} the ${countWord(
-        operation.tables.length,
-        'table',
-        'tables',
-      )} ${tables}`,
-      binds,
-      when(!info.reads && info.returnsRows, 'and returns the row it writes'),
-    ].filter(present),
-    ' ',
-  );
+}
+
+/** The SQL call that implements one operation. */
+function call(info: OperationInfo, row: Import | undefined) {
+  const reads = shapeOf(info) !== 'nothing';
+  const method = reads ? 'all' : 'run';
+  const typeArgument = reads ? code`<${elementType(info, row)}>` : code``;
+  const params = parameterBindings(info);
+  return params === undefined
+    ? code`db.${method}${typeArgument}(${literalOf(info.statement)})`
+    : code`db.${method}${typeArgument}(${literalOf(info.statement)}, ${params})`;
+}
+
+/** One exported service function, derived from one checked operation. */
+function service(info: OperationInfo) {
+  const row = rowImport(info);
+  const expression = call(info, row);
   const body =
-    shape === 'nothing'
-      ? ['  db.run(', `    ${tsString(statement)}${bound ?? ''},`, '  );']
-      : [
-          `  return db.all<${RESULT_TYPES[shape](row)}>(`,
-          `    ${tsString(statement)}${bound ?? ''},`,
-          '  );',
-        ];
-
-  return joinLines(
-    [
-      '/**',
-      ` * ${tsComment(operation.title)}`,
-      ' *',
-      ` * ${description}.`,
-      ' */',
-      `export function ${camelCase(operation.name)}(${separated(
-        parameters,
-        ', ',
-      )}): ${RETURN_TYPES[shape](row)} {`,
-    ].concat(body, ['}']),
-  );
+    shapeOf(info) === 'nothing' ? expression : code`return ${expression}`;
+  return code`
+/** One operation of the checked plan. */
+export function ${camelCase(info.operation.name)}(${parameters(info)}): ${returnType(info, row)} {
+  ${body};
+}
+`;
 }
 
-/** Services: one function per checked operation. */
+/** Services: one function per checked operation of the plan. */
 export function servicesModule({ plan, model }: RenderCodeOptions): string {
-  const infos = plan.operations.map((operation) =>
-    analyzeOperation(operation, model),
+  const services = plan.operations.map((operation) =>
+    service(analyzeOperation(operation, model)),
   );
-  const rowImports = uniq(
-    infos.filter(hasTypedTable).map((info) => rowTypeName(info.table)),
-  ).sort();
-  const schemaImport = when(
-    rowImports.length > 0,
-    `import type { ${separated(rowImports, ', ')} } from './schema';`,
-  );
+  return code`
+/** Services. */
 
-  return new Source()
-    .add([
-      '/** Services. */',
-      '',
-      "import type { Database } from './database';",
-      schemaImport ?? '',
-      '',
-      separated(infos.map(service), '\n\n'),
-      '',
-    ])
-    .toString();
+${joinCode(services, { on: '\n\n' })}
+`.toString();
 }

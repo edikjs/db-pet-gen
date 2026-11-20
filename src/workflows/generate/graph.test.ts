@@ -5,8 +5,8 @@ import { dataModel, seedData } from '../../test-support/fixture';
 describe('SQL smoke check', () => {
   it('executes generated schema and seed in memory and counts rows', async () => {
     const result = await smokeCheckSql(
-      renderDdl(dataModel, 'Pet records'),
-      renderSeedScript(seedData, dataModel, 'Pet records'),
+      renderDdl(dataModel),
+      renderSeedScript(seedData, dataModel),
       dataModel,
     );
     expect(result).toMatchObject({

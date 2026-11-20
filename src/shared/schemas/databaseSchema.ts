@@ -33,7 +33,10 @@ const DataColumnSchema = z.object({
   nullable: z.boolean().default(true),
   unique: z.boolean().default(false),
   length: z.number().int().positive().nullable().default(null),
-  defaultValue: z.string().nullable().default(null),
+  defaultValue: z
+    .union([z.string(), z.number(), z.boolean()])
+    .nullable()
+    .default(null),
   references: z
     .object({ table: Identifier, column: Identifier })
     .nullable()
@@ -54,7 +57,7 @@ const DataTableSchema = z.object({
   name: Identifier,
   comment: z.string().default(''),
   columns: z.array(DataColumnSchema).min(1),
-  checks: z.array(z.string()).default([]),
+  checks: z.array(z.string()).length(0).default([]),
   indexes: z.array(DataIndexSchema).default([]),
 });
 export type DataTable = z.infer<typeof DataTableSchema>;

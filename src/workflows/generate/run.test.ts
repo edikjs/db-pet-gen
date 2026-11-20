@@ -54,7 +54,7 @@ describe('a topic-only generation run', () => {
       await readFile(join(run.workspace, 'run.json'), 'utf8'),
     ) as { status: string; topic: string };
     expect(readme).toContain('Pet records');
-    expect(ddl).toContain('CREATE TABLE pets');
+    expect(ddl).toContain('create table "pets"');
     expect(await readdir(join(run.workspace, 'assets/code'))).toContain(
       'services.ts',
     );

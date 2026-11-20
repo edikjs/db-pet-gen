@@ -1,7 +1,6 @@
 import { joinLines, separated, Source } from '../../shared/source';
-import { when } from '../../shared/text';
+import { oneLine, when } from '../../shared/text';
 import { analyzeOperation } from '../analysis';
-import { tsComment } from './comments';
 import type { OperationInfo, RenderCodeOptions } from '../types';
 
 /** One commented statement of the query listing. */
@@ -13,7 +12,7 @@ function queryBlock(info: OperationInfo): string {
   );
 
   return joinLines([
-    `-- ${tsComment(operation.title)}`,
+    `-- ${oneLine(operation.title)}`,
     `-- Tables: ${separated(operation.tables, ', ')}${parameters ?? ''}`,
     `${info.statement};`,
   ]);
