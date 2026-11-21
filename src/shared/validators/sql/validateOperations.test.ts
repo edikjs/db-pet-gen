@@ -31,11 +31,25 @@ describe('operation validation', () => {
     );
   });
 
-  it('rejects parameters that are not columns of the declared tables', () => {
-    const bad = structuredClone(operations);
-    bad.operations[0].parameters = ['missing'];
-    expect(() => validateOperations(bad, dataModel)).toThrow(
-      /not columns of its tables/u,
+  it('allows parameters that are values rather than columns', () => {
+    const withThreshold = structuredClone(operations);
+    withThreshold.operations[0].statement =
+      'SELECT id FROM pets WHERE id > :threshold';
+    withThreshold.operations[0].parameters = ['threshold'];
+    expect(() => validateOperations(withThreshold, dataModel)).not.toThrow();
+  });
+
+  it('rejects parameters that are not used or are not declared', () => {
+    const unused = structuredClone(operations);
+    unused.operations[0].parameters = ['missing'];
+    expect(() => validateOperations(unused, dataModel)).toThrow(
+      /not used in the statement/u,
+    );
+
+    const undeclared = structuredClone(operations);
+    undeclared.operations[0].parameters = [];
+    expect(() => validateOperations(undeclared, dataModel)).toThrow(
+      /uses parameters that are not declared/u,
     );
   });
 });

@@ -35,14 +35,22 @@ function mentionedTables(statement: string): string[] {
   }
 }
 
-/** The columns available to an operation's declared tables. */
-function declaredColumns(operation: Operation, model: DataModel): Set<string> {
-  const names = new Set(operation.tables);
-  return new Set(
-    model.tables
-      .filter((table) => names.has(table.name))
-      .flatMap((table) => table.columns.map((column) => column.name)),
-  );
+/** Named parameters found in the parsed statement. */
+function statementParameters(statement: string): Set<string> {
+  const names = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (typeof value !== 'object' || value === null) return;
+    const node = value as Record<string, unknown>;
+    if (node.type === 'param' && typeof node.value === 'string')
+      names.add(node.value);
+    Object.values(node).forEach(visit);
+  };
+  visit(parser.astify(statement, DIALECT));
+  return names;
 }
 
 function rejectWhen(
@@ -77,11 +85,16 @@ function validateOperation(operation: Operation, model: DataModel): void {
     'does not mention all declared tables',
   );
 
-  const columns = declaredColumns(operation, model);
+  const used = statementParameters(operation.statement);
   rejectWhen(
-    operation.parameters.filter((name) => !columns.has(name)),
+    operation.parameters.filter((name) => !used.has(name)),
     operation,
-    'declares parameters that are not columns of its tables',
+    'declares parameters that are not used in the statement',
+  );
+  rejectWhen(
+    [...used].filter((name) => !operation.parameters.includes(name)),
+    operation,
+    'uses parameters that are not declared',
   );
 }
 
