@@ -3,8 +3,8 @@ import {
   DataModelSchema,
   OperationsSchema,
   SeedDataSchema,
-} from './databaseSchema';
-import { ProjectPlanSchema } from './planSchema';
+} from './database.schema';
+import { ProjectPlanSchema } from './plan.schema';
 
 /** The checked design data produced by the first model stage. */
 export const DesignSchema = ProjectPlanSchema.merge(DataModelSchema).extend({

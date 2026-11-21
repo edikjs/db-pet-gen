@@ -543,7 +543,9 @@ responses and need no network or database.
 ```text
 src/
   cli/                      Commander commands and terminal progress
-  config/                   Environment and model settings
+  config/
+    env.ts                  Builds AppConfig from validated environment values
+    env.schema.ts           Environment variable schema
   llm/                      Provider client, rate limits and validated JSON requests
   shared/
     schemas/                Shared types and schemas
@@ -552,9 +554,13 @@ src/
       markdown/             README and ER diagram validation
     utils/                  Shared error helpers
   workflows/generate/
-    lifecycle/              Run manifest, event log and checkpoints
+    lifecycle/
+      manifest.schema.ts    Run manifest schema and type
+      runState.ts           Manifest writes, event log and recorder
+      runCheckpointer.ts    SQLite checkpoints
     artifacts.ts            Generated paths and their source data
     graph.ts                Generation stages
+    pipelineState.schema.ts LangGraph state schema
     prompts.ts              Stage instructions
     run.ts                  First run and resume
   io/

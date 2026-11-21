@@ -1,8 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { HumanMessage } from '@langchain/core/messages';
-import { StateGraph, StateSchema, START, END } from '@langchain/langgraph';
-import { z } from 'zod';
+import { StateGraph, START, END } from '@langchain/langgraph';
 import {
   DesignSchema,
   ExamplesSchema,
@@ -16,6 +15,7 @@ import {
 } from '../../shared';
 import { requestJson, type JsonOutcome } from '../../llm';
 import { artifactFiles, ASSET_PATHS } from './artifacts';
+import { PipelineState } from './pipelineState.schema';
 import {
   designPrompt,
   EMPTY_JSON_ERROR,
@@ -39,13 +39,6 @@ function requireAnswer<T>(outcome: JsonOutcome<T>, stage: string): T {
   }
   return outcome.data;
 }
-
-const PipelineState = new StateSchema({
-  topic: z.string(),
-  design: DesignSchema.nullable().default(null),
-  examples: ExamplesSchema.nullable().default(null),
-});
-export type PipelineResult = typeof PipelineState.State;
 
 async function report(
   options: PipelineOptions,

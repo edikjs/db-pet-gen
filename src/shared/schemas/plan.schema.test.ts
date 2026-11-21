@@ -1,4 +1,4 @@
-import { ProjectPlanSchema } from './planSchema';
+import { ProjectPlanSchema } from './plan.schema';
 import { projectPlan } from '../../test-support';
 
 it('validates a substantive topic-specific blueprint', () => {

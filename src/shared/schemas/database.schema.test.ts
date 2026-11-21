@@ -3,7 +3,7 @@ import {
   DataModelSchema,
   OperationsSchema,
   SeedDataSchema,
-} from './databaseSchema';
+} from './database.schema';
 
 describe('database schemas', () => {
   it('accepts the shared fixtures', () => {

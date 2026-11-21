@@ -1,11 +1,11 @@
-export { ProjectPlanSchema, type ProjectPlan } from './planSchema';
-export { DesignSchema, ExamplesSchema, JudgeSchema } from './pipelineSchema';
-export type { Design, Examples, Judge } from './pipelineSchema';
+export { ProjectPlanSchema, type ProjectPlan } from './plan.schema';
+export { DesignSchema, ExamplesSchema, JudgeSchema } from './pipeline.schema';
+export type { Design, Examples, Judge } from './pipeline.schema';
 export {
   DataModelSchema,
   OperationsSchema,
   SeedDataSchema,
-} from './databaseSchema';
+} from './database.schema';
 export type {
   DataColumn,
   DataIndex,
@@ -15,4 +15,4 @@ export type {
   Operations,
   SeedData,
   SeedValue,
-} from './databaseSchema';
+} from './database.schema';

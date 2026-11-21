@@ -1,6 +1,6 @@
 import type { AppConfig } from '../../config';
 import type { GenerationModel } from '../../llm';
-import type { PipelineResult } from './graph';
+import type { PipelineResult } from './pipelineState.schema';
 
 export interface PipelineEvent {
   kind: 'stage_started' | 'stage_finished' | 'stage_failed';

@@ -1,12 +1,8 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  ManifestSchema,
-  RunRecorder,
-  type RunManifest,
-  writeManifest,
-} from './runState';
+import { RunRecorder, writeManifest } from './runState';
+import { ManifestSchema, type RunManifest } from './runState.schema';
 
 it('redacts credentials from stage logs and writes the manifest atomically', async () => {
   const root = await mkdtemp(join(tmpdir(), 'db-pet-log-'));
