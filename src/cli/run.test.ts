@@ -13,10 +13,8 @@ const result: RunResult = {
   readmePath: '/tmp/a-run/README.md',
   state: {
     topic: 'Pet records',
-    plan: null,
-    database: null,
-    seed: null,
-    codePlan: null,
+    design: null,
+    examples: null,
     output: null,
   },
 };

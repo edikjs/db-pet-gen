@@ -79,10 +79,8 @@ async function execute(
         ? null
         : {
             topic: recorder.manifest.topic,
-            plan: null,
-            database: null,
-            seed: null,
-            codePlan: null,
+            design: null,
+            examples: null,
             output: null,
           },
       config,

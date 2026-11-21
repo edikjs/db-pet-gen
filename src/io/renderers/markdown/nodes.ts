@@ -1,3 +1,4 @@
+import { escape as escapeHtml } from 'es-toolkit';
 import type {
   Code,
   Heading,
@@ -6,11 +7,29 @@ import type {
   List,
   ListItem,
   Paragraph,
-  Strong,
   Text,
 } from 'mdast';
-import { oneLine, prose } from '../shared/text';
+import { collapse } from 'string-collapse-white-space';
 import type { BlockNode, InlineNode } from './types';
+
+const SPACE_CHARACTERS: readonly string[] = [' ', '\n', '\r', '\t'];
+
+/** Replaces line breaks and repeated spaces with one space. */
+function oneLine(value: string): string {
+  const flat = value.split('\n').join(' ').split('\r').join(' ');
+  return collapse(flat).result;
+}
+
+/** Escapes untrusted prose, keeping one intentional boundary space. */
+function escapeProse(value: string): string {
+  const leading = SPACE_CHARACTERS.some((char) => value.startsWith(char))
+    ? ' '
+    : '';
+  const trailing = SPACE_CHARACTERS.some((char) => value.endsWith(char))
+    ? ' '
+    : '';
+  return `${leading}${escapeHtml(oneLine(value))}${trailing}`;
+}
 
 /** A literal inline value. */
 export function text(value: string): Text {
@@ -19,17 +38,12 @@ export function text(value: string): Text {
 
 /** Escaped model-provided prose. */
 export function proseText(value: string): Text {
-  return text(prose(value));
+  return text(escapeProse(value));
 }
 
 /** Inline code with a single line. */
 export function inlineCode(value: string): InlineCode {
   return { type: 'inlineCode', value: oneLine(value) };
-}
-
-/** Strong inline text. */
-export function strong(value: string): Strong {
-  return { type: 'strong', children: [proseText(value)] };
 }
 
 /** A relative Markdown link. */

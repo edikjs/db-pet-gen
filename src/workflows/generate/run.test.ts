@@ -34,7 +34,7 @@ describe('a topic-only generation run', () => {
     expect(await readdir(root)).toEqual([]);
   });
 
-  it('writes Markdown, SQL, code, manifest, QA and a structured event log', async () => {
+  it('writes Markdown, SQL, manifest, QA and a structured event log', async () => {
     const model = new FixtureModel();
     const run = await runGenerate({
       topic: 'Pet records',
@@ -53,11 +53,16 @@ describe('a topic-only generation run', () => {
     const manifest = JSON.parse(
       await readFile(join(run.workspace, 'run.json'), 'utf8'),
     ) as { status: string; topic: string };
+    const qa = JSON.parse(
+      await readFile(join(run.workspace, 'qa-report.json'), 'utf8'),
+    ) as Record<string, unknown>;
     expect(readme).toContain('Pet records');
     expect(ddl).toContain('create table "pets"');
-    expect(await readdir(join(run.workspace, 'assets/code'))).toContain(
-      'services.ts',
-    );
+    expect(await readdir(join(run.workspace, 'assets'))).toEqual([
+      'ddl',
+      'diagrams',
+      'seed',
+    ]);
     expect(manifest).toMatchObject({
       status: 'completed',
       topic: 'Pet records',
@@ -65,27 +70,19 @@ describe('a topic-only generation run', () => {
     expect(events.map((event) => event.kind)).toEqual(
       expect.arrayContaining(['run_started', 'stage_started', 'run_completed']),
     );
-    expect(model.calls).toEqual(['plan', 'schema', 'seed', 'code']);
+    expect(qa).toEqual({
+      verdict: 'pass',
+      checks: { sql: 'passed', mermaid: 'passed', markdown: 'passed' },
+    });
+    expect(model.calls).toEqual(['design', 'examples']);
   });
 
-  it('fails the run when seed data breaks the SQL smoke check', async () => {
-    class InvalidSeedModel extends FixtureModel {
+  it('fails the run when the model returns an unusable design', async () => {
+    class InvalidDesignModel extends FixtureModel {
       override async invoke(messages: BaseMessage[]): Promise<BaseMessage> {
-        const answer = await super.invoke(messages);
-        if (String(messages[0]?.content).includes('STAGE:seed')) {
-          return new AIMessage(
-            JSON.stringify({
-              tables: [
-                { table: 'owners', rows: [{ id: 1, name: 'Ada' }] },
-                {
-                  table: 'pets',
-                  rows: [{ id: 10, owner_id: 999, name: 'Milo' }],
-                },
-              ],
-            }),
-          );
-        }
-        return answer;
+        if (String(messages[0]?.content).includes('STAGE:design'))
+          return new AIMessage(JSON.stringify({ title: 'Too short' }));
+        return super.invoke(messages);
       }
     }
     const config = configFor(root);
@@ -93,13 +90,13 @@ describe('a topic-only generation run', () => {
       runGenerate({
         topic: 'Pet records',
         config,
-        model: new InvalidSeedModel(),
+        model: new InvalidDesignModel(),
       }),
-    ).rejects.toThrow(/SQL smoke check/u);
+    ).rejects.toThrow(/usable design/u);
     const [runId] = await readdir(root);
     const log = await readFile(join(root, runId, 'events.jsonl'), 'utf8');
     expect(log).toContain('"kind":"stage_failed"');
-    expect(log).toContain('"stage":"seed"');
+    expect(log).toContain('"stage":"design"');
   });
 
   it('resumes the failed stage without repeating completed model calls', async () => {
@@ -108,14 +105,14 @@ describe('a topic-only generation run', () => {
       runGenerate({
         topic: 'Pet records',
         config,
-        model: new FixtureModel('seed'),
+        model: new FixtureModel('examples'),
       }),
     ).rejects.toThrow(/Resume:/u);
     const [runId] = await readdir(root);
     const model = new FixtureModel();
     const result = await resumeRun({ runId, config, model });
     expect(result.readmePath).toContain('README.md');
-    expect(model.calls).toEqual(['seed', 'code']);
+    expect(model.calls).toEqual(['examples']);
     const manifest = JSON.parse(
       await readFile(join(result.workspace, 'run.json'), 'utf8'),
     ) as { status: string; resumptions: number };
@@ -128,7 +125,7 @@ describe('a topic-only generation run', () => {
       runGenerate({
         topic: 'Pet records',
         config,
-        model: new FixtureModel('seed'),
+        model: new FixtureModel('examples'),
       }),
     ).rejects.toThrow();
     const [runId] = await readdir(root);

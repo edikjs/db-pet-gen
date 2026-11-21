@@ -1,6 +1,13 @@
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import type { GenerationModel } from '../llm';
-import type { CodePlan, DataModel, ProjectPlan, SeedData } from '../shared';
+import type {
+  DataModel,
+  Design,
+  Examples,
+  Operations,
+  ProjectPlan,
+  SeedData,
+} from '../shared';
 
 export const projectPlan: ProjectPlan = {
   title: 'Pet records',
@@ -112,7 +119,7 @@ export const seedData: SeedData = {
   ],
 };
 
-export const codePlan: CodePlan = {
+export const operations: Operations = {
   operations: [
     {
       name: 'list_pets_by_owner',
@@ -132,6 +139,10 @@ export const codePlan: CodePlan = {
   ],
 };
 
+export const design: Design = { ...projectPlan, ...dataModel };
+
+export const examples: Examples = { ...seedData, ...operations };
+
 export class FixtureModel implements GenerationModel {
   readonly calls: string[] = [];
   constructor(private readonly failStage?: string) {}
@@ -142,12 +153,7 @@ export class FixtureModel implements GenerationModel {
     this.calls.push(stage);
     if (stage === this.failStage)
       throw new Error(`simulated model outage: ${stage}`);
-    const answers: Record<string, unknown> = {
-      plan: projectPlan,
-      schema: dataModel,
-      seed: seedData,
-      code: codePlan,
-    };
+    const answers: Record<string, unknown> = { design, examples };
     return new AIMessage(JSON.stringify(answers[stage]));
   }
 }

@@ -1,6 +1,6 @@
 import { toMermaid } from '@jarenjs/mermaid';
+import { QuoteUtils } from '@pgsql/quotes';
 import type { DataColumn, DataModel, DataTable } from '../../../shared';
-import { isPlainIdentifier } from '../shared/naming';
 import type {
   MermaidErCardinality,
   MermaidErDiagram,
@@ -38,7 +38,7 @@ function safeNames(names: readonly string[], prefix: string): string[] {
 
   return names.map((name, index) => {
     const base =
-      isPlainIdentifier(name) && name !== 'end'
+      QuoteUtils.quoteIdentifier(name) === name && name !== 'end'
         ? name
         : `${prefix}_${index + 1}`;
     let candidate = base;

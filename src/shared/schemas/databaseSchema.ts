@@ -87,23 +87,17 @@ export const SeedDataSchema = z.object({
 export type SeedData = z.infer<typeof SeedDataSchema>;
 export type SeedValue = string | number | boolean | null;
 
-const CodeOperationSchema = z.object({
+const OperationSchema = z.object({
   name: Identifier,
   title: z.string().min(1),
   tables: z.array(Identifier).min(1),
   parameters: z.array(Identifier).default([]),
   statement: z.string().min(1),
 });
-export type CodeOperation = z.infer<typeof CodeOperationSchema>;
+export type Operation = z.infer<typeof OperationSchema>;
 
-export const CodePlanSchema = z.object({
-  operations: z.array(CodeOperationSchema).min(2).max(12),
+/** The checked example operations documented in the generated README. */
+export const OperationsSchema = z.object({
+  operations: z.array(OperationSchema).min(2).max(12),
 });
-export type CodePlan = z.infer<typeof CodePlanSchema>;
-
-export interface CodeFile {
-  id: string;
-  path: string;
-  summary: string;
-  content: string;
-}
+export type Operations = z.infer<typeof OperationsSchema>;

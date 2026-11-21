@@ -1,1 +1,0 @@
-export { renderCodeFiles } from './codeRenderer';

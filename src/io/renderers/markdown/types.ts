@@ -1,19 +1,10 @@
 import type { BlockContent, PhrasingContent } from 'mdast';
 import type {
-  CodeFile,
-  CodePlan,
   DataModel,
+  Operations,
   ProjectPlan,
   SeedData,
 } from '../../../shared';
-
-export type SmokeStatus = 'passed' | 'failed' | 'skipped';
-
-export interface SmokeReport {
-  readonly status: SmokeStatus;
-  readonly reason?: string | null;
-  readonly rowCounts: Readonly<Record<string, number>>;
-}
 
 /** Checked data and generated assets used to document a run. */
 export interface ReadmeInput {
@@ -21,16 +12,8 @@ export interface ReadmeInput {
   readonly plan: ProjectPlan;
   readonly model: DataModel;
   readonly seed: SeedData;
-  readonly codePlan: CodePlan;
-  readonly codeFiles: readonly CodeFile[];
+  readonly operations: Operations;
   readonly diagram: string;
-  readonly smoke: SmokeReport;
-}
-
-/** A generated code file and its safe relative link, when it has one. */
-export interface CodeLink {
-  readonly file: CodeFile;
-  readonly path: string | undefined;
 }
 
 /** One declared foreign key, described in prose. */
@@ -47,8 +30,6 @@ export interface Relationship {
 export interface ReadmeContext {
   readonly input: ReadmeInput;
   readonly diagram: string;
-  readonly links: readonly CodeLink[];
-  readonly queriesPath: string | undefined;
   readonly relationships: readonly Relationship[];
   readonly seedCounts: ReadonlyMap<string, number>;
 }

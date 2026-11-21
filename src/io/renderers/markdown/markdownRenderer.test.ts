@@ -1,9 +1,8 @@
 import {
-  CodePlanSchema,
   DataModelSchema,
+  OperationsSchema,
   ProjectPlanSchema,
   SeedDataSchema,
-  type CodeFile,
   type DataModel,
 } from '../../../shared';
 import { lintReadme, renderErDiagram, renderReadme } from './markdownRenderer';
@@ -87,7 +86,7 @@ const seed = SeedDataSchema.parse({
   ],
 });
 
-const codePlan = CodePlanSchema.parse({
+const operations = OperationsSchema.parse({
   operations: [
     {
       name: 'find_books',
@@ -107,44 +106,10 @@ const codePlan = CodePlanSchema.parse({
   ],
 });
 
-const files: CodeFile[] = [
-  {
-    id: 'database',
-    path: 'code/database.ts',
-    summary: 'Example SQLite driver.',
-    content: '',
-  },
-  {
-    id: 'schema',
-    path: 'code/schema.ts',
-    summary: 'Schema metadata.',
-    content: '',
-  },
-  {
-    id: 'repos',
-    path: 'code/repositories.ts',
-    summary: 'Repositories.',
-    content: '',
-  },
-  {
-    id: 'services',
-    path: 'code/services.ts',
-    summary: 'Services.',
-    content: '',
-  },
-  {
-    id: 'queries',
-    path: 'code/queries.sql',
-    summary: 'Named-parameter queries.',
-    content: '',
-  },
-];
-
 const availablePaths = [
   'assets/ddl/schema.sql',
   'assets/seed/seed.sql',
   'assets/diagrams/er.mmd',
-  ...files.map((file) => `assets/${file.path}`),
 ];
 
 function readme(
@@ -155,10 +120,8 @@ function readme(
     plan,
     model,
     seed,
-    codePlan,
-    codeFiles: files,
+    operations,
     diagram: renderErDiagram(model),
-    smoke: { status: 'passed', rowCounts: { authors: 1, books: 2 } },
     ...overrides,
   });
 }
@@ -242,7 +205,7 @@ describe('renderErDiagram', () => {
 });
 
 describe('renderReadme', () => {
-  it('documents the design, data dictionary, setup, operations, smoke status and limitations', () => {
+  it('documents the design, data dictionary, setup, operations and limitations', () => {
     const markdown = readme();
     for (const section of [
       'Project overview',
@@ -252,8 +215,6 @@ describe('renderReadme', () => {
       'Sample data',
       'PostgreSQL setup',
       'Operations and queries',
-      'Code map',
-      'Smoke test',
       'Limitations',
     ]) {
       expect(markdown).toContain(`## ${section}`);
@@ -278,9 +239,7 @@ describe('renderReadme', () => {
     expect(markdown).toContain(
       'SELECT id, title FROM books WHERE author_id = :author_id',
     );
-    expect(markdown).toContain('**passed**');
-    expect(markdown).toContain('SQLite');
-    expect(markdown).toContain('not** a runnable PostgreSQL application');
+    expect(markdown).toContain('not executed against a live database');
     expect(lintReadme(markdown, availablePaths)).toEqual([]);
   });
 
@@ -289,12 +248,6 @@ describe('renderReadme', () => {
     for (const path of availablePaths) {
       expect(markdown).toContain(`](${path})`);
     }
-    expect(markdown).toContain(
-      '[assets/code/queries.sql](assets/code/queries.sql)',
-    );
-    expect(markdown).toContain(
-      '[assets/code/database.ts](assets/code/database.ts)',
-    );
   });
 
   it('escapes untrusted Markdown/HTML in prose and table cells and cannot close a SQL fence', () => {
@@ -321,30 +274,21 @@ describe('renderReadme', () => {
       title: 'Library | <script>alert(1)</script>',
       assumptions: ['Assume [unsafe](https://bad.example) data is untrusted.'],
     });
-    const unsafeCodePlan = CodePlanSchema.parse({
-      ...codePlan,
+    const unsafeOperations = OperationsSchema.parse({
+      ...operations,
       operations: [
         {
-          ...codePlan.operations[0],
+          ...operations.operations[0],
           statement: 'SELECT id FROM books\n````\n[bad](https://bad.example)',
         },
-        codePlan.operations[1],
+        operations.operations[1],
       ],
     });
     const markdown = readme({
       model: unsafeModel,
       plan: unsafePlan,
-      codePlan: unsafeCodePlan,
+      operations: unsafeOperations,
       diagram: renderErDiagram(unsafeModel),
-      codeFiles: [
-        { ...files[0], summary: 'SQLite | driver\n<script>evil</script>' },
-        ...files.slice(1),
-      ],
-      smoke: {
-        status: 'skipped',
-        reason: 'Needs | <script>server</script>',
-        rowCounts: {},
-      },
     });
     expect(markdown).toContain(
       '# Library | \\&lt;script\\&gt;alert(1)\\&lt;/script\\&gt;',
@@ -354,9 +298,6 @@ describe('renderReadme', () => {
     );
     expect(markdown).toContain(
       'Title | \\[bad]\\(https://bad.example) next line',
-    );
-    expect(markdown).toContain(
-      'SQLite | driver \\&lt;script\\&gt;evil\\&lt;/script\\&gt;',
     );
     expect(markdown).toContain(
       '`````sql\nSELECT id FROM books\n````\n[bad](https://bad.example)\n`````',

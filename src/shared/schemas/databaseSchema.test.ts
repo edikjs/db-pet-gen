@@ -1,7 +1,7 @@
-import { codePlan, dataModel, seedData } from '../../test-support/fixture';
+import { dataModel, operations, seedData } from '../../test-support/fixture';
 import {
-  CodePlanSchema,
   DataModelSchema,
+  OperationsSchema,
   SeedDataSchema,
 } from './databaseSchema';
 
@@ -9,7 +9,7 @@ describe('database schemas', () => {
   it('accepts the shared fixtures', () => {
     expect(DataModelSchema.parse(dataModel)).toEqual(dataModel);
     expect(SeedDataSchema.parse(seedData)).toEqual(seedData);
-    expect(CodePlanSchema.parse(codePlan)).toEqual(codePlan);
+    expect(OperationsSchema.parse(operations)).toEqual(operations);
   });
 
   it('rejects identifiers that would break unquoted SQL or code', () => {

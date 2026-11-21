@@ -2,8 +2,7 @@
 
 Standalone TypeScript/Node.js 24 project. Its only generation input is a topic.
 The CLI produces a documented Markdown project, portable PostgreSQL SQL
-scripts, a TypeScript code skeleton, and an ER diagram inside
-`artifacts/runs/<run-id>/`.
+scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 
 ## Commands
 
@@ -21,13 +20,13 @@ scripts, a TypeScript code skeleton, and an ER diagram inside
 - `src/llm/` — OpenAI-compatible chat model and structured JSON retries.
 - `src/shared/schemas/` — shared types and schemas.
 - `src/shared/utils/` — shared error helpers.
-- `src/workflows/generate/` — LangGraph stages: plan, schema, seed, operations,
-  documentation+smoke QA, publish; run entry and resume.
+- `src/workflows/generate/` — LangGraph stages: design, examples, render,
+  publish; run entry and resume.
 - `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
   SQLite checkpoints.
-- `src/io/workspace.ts` and `src/io/renderers/` — run paths and deterministic
-  Kysely-compiled SQL, `ts-poet`-emitted code, and `mdast`/`remark`-backed
-  Markdown/ER renderers.
+- `src/io/workspace.ts` and `src/io/renderers/` — run paths, Kysely-compiled SQL,
+  `node-sql-parser` validation of model-supplied operations, and
+  `mdast`/`remark`-backed Markdown/ER renderers.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
 - `src/adapters/observability/` — optional Phoenix tracing.
 - `src/test-support/` — network-free fake model and valid fixture.
@@ -40,9 +39,10 @@ whose last release is more than two years old unless they are still widely
 used today.
 
 Model responses provide **structured data**. Do not let model text write
-arbitrary paths, raw TypeScript, or Markdown links. Code and Markdown render
-from checked data. The generated SQLite driver is an illustrative skeleton;
-do not claim generated code is a runnable PostgreSQL application.
+arbitrary file contents, paths, or Markdown links. SQL, Markdown and diagrams
+render from checked data. Model-supplied operation statements are parsed and
+checked against the design but never written to disk as generated files; do not
+claim they were executed against PostgreSQL.
 
 - Render Markdown and Mermaid from checked data with libraries, not by
   concatenating ad-hoc strings.

@@ -12,8 +12,6 @@ const SECTIONS: readonly string[] = [
   'Sample data',
   'PostgreSQL setup',
   'Operations and queries',
-  'Code map',
-  'Smoke test',
   'Limitations',
 ];
 

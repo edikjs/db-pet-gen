@@ -1,30 +1,22 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { parseMermaid } from '@jarenjs/mermaid';
 import { HumanMessage } from '@langchain/core/messages';
 import { StateGraph, StateSchema, START, END } from '@langchain/langgraph';
-import { render as renderMermaid } from 'pele';
 import { z } from 'zod';
-import {
-  CodePlanSchema,
-  DataModelSchema,
-  ProjectPlanSchema,
-  SeedDataSchema,
-  type CodePlan,
-  type DataModel,
-} from '../../shared';
+import { DesignSchema, ExamplesSchema } from '../../shared';
 import { requestJson, type JsonOutcome } from '../../llm';
 import {
   renderDdl,
   renderSeedScript,
-  renderCodeFiles,
+  validateOperations,
   lintReadme,
   renderErDiagram,
   renderReadme,
 } from '../../io/renderers';
 import type { PipelineEvent, PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 1;
+export const GRAPH_VERSION = 2;
 
 const STAGE_ATTEMPTS = 2;
 const EMPTY_JSON_ERROR = 'the answer was not a JSON object';
@@ -42,34 +34,24 @@ function requireAnswer<T>(outcome: JsonOutcome<T>, stage: string): T {
   return outcome.data;
 }
 
-const SmokeSchema = z.object({
-  status: z.enum(['passed', 'failed', 'skipped']),
-  reason: z.string().nullable(),
-  rowCounts: z.record(z.string(), z.number()),
+const ChecksSchema = z.object({
+  sql: z.literal('passed'),
+  mermaid: z.literal('passed'),
+  markdown: z.literal('passed'),
 });
 
 const OutputSchema = z.object({
   ddl: z.string(),
   seedSql: z.string(),
   diagram: z.string(),
-  codeFiles: z.array(
-    z.object({
-      id: z.string(),
-      path: z.string(),
-      summary: z.string(),
-      content: z.string(),
-    }),
-  ),
   readme: z.string(),
-  smoke: SmokeSchema,
+  checks: ChecksSchema,
 });
 
 const PipelineState = new StateSchema({
   topic: z.string(),
-  plan: ProjectPlanSchema.nullable().default(null),
-  database: DataModelSchema.nullable().default(null),
-  seed: SeedDataSchema.nullable().default(null),
-  codePlan: CodePlanSchema.nullable().default(null),
+  design: DesignSchema.nullable().default(null),
+  examples: ExamplesSchema.nullable().default(null),
   output: OutputSchema.nullable().default(null),
 });
 export type PipelineResult = typeof PipelineState.State;
@@ -109,151 +91,90 @@ function requireValue<T>(value: T | null, name: string): T {
 /** A new run and a resume compile exactly the same graph. */
 export function buildPipeline(options: PipelineOptions) {
   return new StateGraph(PipelineState)
-    .addNode('planStage', async (state) =>
-      stage(options, 'plan', async () => ({
-        plan: requireAnswer(
+    .addNode('designStage', async (state) =>
+      stage(options, 'design', async () => ({
+        design: requireAnswer(
           await requestJson({
             model: options.model,
             messages: [
               new HumanMessage(
-                `STAGE:plan\nPropose a small database pet-project from the topic: ${state.topic}.\nAnswer one English JSON object with: title (string), summary (one factual paragraph), assumptions (1-6 short strings), features (2-8 short strings). Describe only what this project contains; do not fabricate citations or claim there is a running application.`,
+                `STAGE:design\nPropose a small database pet-project from the topic: ${state.topic}.\nReturn one English JSON object with: title (string), summary (one factual paragraph), assumptions (1-6 short strings), features (2-8 short strings), tables (2-8 objects). Describe only what this project contains; do not fabricate citations or claim there is a running application.\nEach table: name (snake_case), comment (English), columns (nonempty), checks:[], indexes:[]. Every column: name, type (INTEGER|BIGINT|SMALLINT|REAL|NUMERIC|TEXT|VARCHAR|BOOLEAN|DATE|TIMESTAMP), primaryKey:boolean, nullable:boolean, unique:boolean, length:number|null, defaultValue: a JSON string/number/boolean value (not SQL text) or null, references:{"table":string,"column":string}|null, comment (English). Each index: name, columns:[...], unique:boolean, comment. Every table has a non-null primary key. List parent tables BEFORE referencing children, references point only to an earlier table's primary/unique column of the SAME type. At least one meaningful foreign key. checks always []. Answer JSON only.`,
               ),
             ],
-            schema: ProjectPlanSchema,
-            keys: Object.keys(ProjectPlanSchema.shape),
+            schema: DesignSchema,
+            keys: Object.keys(DesignSchema.shape),
             emptyError: EMPTY_JSON_ERROR,
             corrective: correctiveReply,
             attempts: STAGE_ATTEMPTS,
           }),
-          'project plan',
+          'design',
         ),
       })),
     )
-    .addNode('schemaStage', async (state) =>
-      stage(options, 'schema', async () => ({
-        database: requireAnswer(
-          await requestJson({
-            model: options.model,
-            messages: [
-              new HumanMessage(
-                `STAGE:schema\nDesign the PostgreSQL-compatible database for "${state.topic}". Plan: ${JSON.stringify(requireValue(state.plan, 'plan'))}.\nReturn a JSON object {"tables":[...]}, 2-8 tables. Each table: name (snake_case), comment (English), columns (nonempty), checks:[], indexes:[]. Every column: name, type (INTEGER|BIGINT|SMALLINT|REAL|NUMERIC|TEXT|VARCHAR|BOOLEAN|DATE|TIMESTAMP), primaryKey:boolean, nullable:boolean, unique:boolean, length:number|null, defaultValue: a JSON string/number/boolean value (not SQL text) or null, references:{"table":string,"column":string}|null, comment (English). Each index: name, columns:[...], unique:boolean, comment. Every table has a non-null primary key. List parent tables BEFORE referencing children, references point only to an earlier table's primary/unique column of the SAME type. At least one meaningful foreign key. checks always []. Answer JSON only.`,
-              ),
-            ],
-            schema: DataModelSchema,
-            keys: Object.keys(DataModelSchema.shape),
-            emptyError: EMPTY_JSON_ERROR,
-            corrective: correctiveReply,
-            attempts: STAGE_ATTEMPTS,
-          }),
-          'database schema',
-        ),
-      })),
-    )
-    .addNode('seedStage', async (state) =>
-      stage(options, 'seed', async () => {
-        const database = requireValue(state.database, 'database schema');
-        const seed = requireAnswer(
-          await requestJson({
-            model: options.model,
-            messages: [
-              new HumanMessage(
-                `STAGE:seed\nCreate realistic sample data for ${state.topic}.\nChecked schema JSON:\n${JSON.stringify(database)}\nAnswer JSON {"tables":[{"table":"<table name>","rows":[{"column":value}]}]}. Include every table, 2-5 rows each, valid keys and cross-table references. INTEGER and NUMERIC values are JSON numbers; BOOLEAN values booleans; DATE/TIMESTAMP/TEXT/VARCHAR are strings. No SQL syntax in values. Answer JSON only.`,
-              ),
-            ],
-            schema: SeedDataSchema,
-            keys: Object.keys(SeedDataSchema.shape),
-            emptyError: EMPTY_JSON_ERROR,
-            corrective: correctiveReply,
-            attempts: STAGE_ATTEMPTS,
-          }),
-          'seed data',
-        );
-        const smoke = await smokeCheckSql(
-          renderDdl(database),
-          renderSeedScript(seed, database),
-          database,
-        );
-        if (smoke.status === 'failed')
-          throw new Error(`SQL smoke check: ${smoke.reason}`);
-        return { seed };
+    .addNode('examplesStage', async (state) =>
+      stage(options, 'examples', async () => {
+        const design = requireValue(state.design, 'design');
+        return {
+          examples: requireAnswer(
+            await requestJson({
+              model: options.model,
+              messages: [
+                new HumanMessage(
+                  `STAGE:examples\nCreate realistic sample data and useful data operations for ${state.topic}.\nChecked design JSON:\n${JSON.stringify(design)}\nReturn one English JSON object with: tables (every table, 2-5 rows each, valid keys and cross-table references), operations (2-12 useful pet-project data operations). Each seed table: {"table":"<table name>","rows":[{"column":value}]}. INTEGER and NUMERIC values are JSON numbers; BOOLEAN values booleans; DATE/TIMESTAMP/TEXT/VARCHAR are strings. No SQL syntax in values. Each operation: {"name":"snake_case","title":"English description","tables":["table"],"parameters":["column"],"statement":"one SELECT, INSERT, UPDATE or DELETE statement"}. Named parameters are :column and each declared parameter must appear in the SQL. No semicolons inside the statement, no comments, no DDL. Mention every table listed in each operation. Every statement is parsed and checked against the declared tables and parameters. Answer JSON only.`,
+                ),
+              ],
+              schema: ExamplesSchema,
+              keys: Object.keys(ExamplesSchema.shape),
+              emptyError: EMPTY_JSON_ERROR,
+              corrective: correctiveReply,
+              attempts: STAGE_ATTEMPTS,
+            }),
+            'examples',
+          ),
+        };
       }),
     )
-    .addNode('codeStage', async (state) =>
-      stage(options, 'code', async () => {
-        const database = requireValue(state.database, 'database schema');
-        const seed = requireValue(state.seed, 'seed data');
-        const codePlan = requireAnswer(
-          await requestJson({
-            model: options.model,
-            messages: [
-              new HumanMessage(
-                `STAGE:code\nPropose 2-12 useful pet-project data operations for ${state.topic}. Checked schema JSON:\n${JSON.stringify(database)}\nReturn JSON {"operations":[{"name":"snake_case","title":"English description","tables":["table"],"parameters":["column"],"statement":"one SELECT, INSERT, UPDATE or DELETE statement"}]}. Named parameters are :column and each declared parameter must appear in the SQL. No semicolons inside the statement, no comments, no DDL. Mention every table listed in each operation. The TypeScript skeleton is rendered from these checked operations. Answer JSON only.`,
-              ),
-            ],
-            schema: CodePlanSchema,
-            keys: Object.keys(CodePlanSchema.shape),
-            emptyError: EMPTY_JSON_ERROR,
-            corrective: correctiveReply,
-            attempts: STAGE_ATTEMPTS,
-          }),
-          'code plan',
-        );
-        const smoke = await smokeCheckSql(
-          renderDdl(database),
-          renderSeedScript(seed, database),
-          database,
-          codePlan,
-        );
-        if (smoke.status === 'failed')
-          throw new Error(`Operation SQL: ${smoke.reason}`);
-        return { codePlan };
-      }),
-    )
-    .addNode('documentationStage', async (state) =>
-      stage(options, 'documentation', async () => {
-        const plan = requireValue(state.plan, 'plan');
-        const database = requireValue(state.database, 'database schema');
-        const seed = requireValue(state.seed, 'seed data');
-        const codePlan = requireValue(state.codePlan, 'code plan');
-        const ddl = renderDdl(database);
-        const seedSql = renderSeedScript(seed, database);
-        const diagram = renderErDiagram(database);
+    .addNode('renderStage', async (state) =>
+      stage(options, 'render', async () => {
+        const design = requireValue(state.design, 'design');
+        const examples = requireValue(state.examples, 'examples');
+        validateOperations(examples, design);
+        const ddl = renderDdl(design);
+        const seedSql = renderSeedScript(examples, design);
+        const diagram = renderErDiagram(design);
         try {
-          renderMermaid(diagram);
+          parseMermaid(diagram);
         } catch (error) {
           throw new Error(
             `The generated Mermaid ER diagram is invalid: ${error instanceof Error ? error.message : String(error)}`,
             { cause: error },
           );
         }
-        const codeFiles = renderCodeFiles({
-          plan: codePlan,
-          model: database,
-          topic: state.topic,
-        });
-        const smoke = await smokeCheckSql(ddl, seedSql, database, codePlan);
-        if (smoke.status === 'failed')
-          throw new Error(`SQL smoke check failed: ${smoke.reason}`);
         const readme = renderReadme({
           topic: state.topic,
-          plan,
-          model: database,
-          seed,
-          codePlan,
-          codeFiles,
+          plan: design,
+          model: design,
+          seed: examples,
+          operations: examples,
           diagram,
-          smoke,
         });
         const paths = [
           'assets/ddl/schema.sql',
           'assets/seed/seed.sql',
           'assets/diagrams/er.mmd',
-          ...codeFiles.map((file) => `assets/${file.path}`),
         ];
         const issues = lintReadme(readme, paths);
         if (issues.length)
           throw new Error(`Markdown QA failed: ${issues.join('; ')}`);
-        return { output: { ddl, seedSql, diagram, codeFiles, readme, smoke } };
+        return {
+          output: {
+            ddl,
+            seedSql,
+            diagram,
+            readme,
+            checks: { sql: 'passed', mermaid: 'passed', markdown: 'passed' },
+          },
+        };
       }),
     )
     .addNode('publishStage', async (state) =>
@@ -263,10 +184,6 @@ export function buildPipeline(options: PipelineOptions) {
           ['assets/ddl/schema.sql', output.ddl],
           ['assets/seed/seed.sql', output.seedSql],
           ['assets/diagrams/er.mmd', output.diagram],
-          ...output.codeFiles.map((file) => [
-            `assets/${file.path}`,
-            file.content,
-          ]),
           ['README.md', output.readme],
         ];
         for (const [path, contents] of files) {
@@ -277,11 +194,7 @@ export function buildPipeline(options: PipelineOptions) {
         await writeFile(
           join(options.workspace, 'qa-report.json'),
           `${JSON.stringify(
-            {
-              verdict: 'pass',
-              smokeCheck: output.smoke,
-              markdownIssues: [],
-            },
+            { verdict: 'pass', checks: output.checks },
             null,
             2,
           )}\n`,
@@ -290,44 +203,9 @@ export function buildPipeline(options: PipelineOptions) {
         return {};
       }),
     )
-    .addEdge(START, 'planStage')
-    .addEdge('planStage', 'schemaStage')
-    .addEdge('schemaStage', 'seedStage')
-    .addEdge('seedStage', 'codeStage')
-    .addEdge('codeStage', 'documentationStage')
-    .addEdge('documentationStage', 'publishStage')
+    .addEdge(START, 'designStage')
+    .addEdge('designStage', 'examplesStage')
+    .addEdge('examplesStage', 'renderStage')
+    .addEdge('renderStage', 'publishStage')
     .addEdge('publishStage', END);
-}
-
-export async function smokeCheckSql(
-  ddl: string,
-  seedSql: string,
-  model: DataModel,
-  codePlan?: CodePlan,
-): Promise<z.infer<typeof SmokeSchema>> {
-  const db = new DatabaseSync(':memory:');
-  try {
-    db.exec('PRAGMA foreign_keys = ON');
-    db.exec(ddl);
-    db.exec(seedSql);
-    for (const operation of codePlan?.operations ?? []) {
-      db.prepare(operation.statement);
-    }
-    const rowCounts: Record<string, number> = {};
-    for (const table of model.tables) {
-      const row = db
-        .prepare(`SELECT COUNT(*) AS count FROM ${table.name}`)
-        .get();
-      rowCounts[table.name] = typeof row?.count === 'number' ? row.count : 0;
-    }
-    return { status: 'passed', reason: null, rowCounts };
-  } catch (error) {
-    return {
-      status: 'failed',
-      reason: error instanceof Error ? error.message : String(error),
-      rowCounts: {},
-    };
-  } finally {
-    db.close();
-  }
 }

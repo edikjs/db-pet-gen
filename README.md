@@ -1,9 +1,8 @@
 # db-pet-gen
 
 Generate a small, documented database pet project from **one topic**. The result
-contains a PostgreSQL-compatible SQL schema, seed data, an illustrative
-TypeScript code skeleton, an ER diagram, and a comprehensive English
-`README.md`.
+contains a PostgreSQL-compatible SQL schema, seed data, an ER diagram, and a
+comprehensive English `README.md`.
 
 ## Setup
 
@@ -43,6 +42,27 @@ stored in a run manifest, event log, or diagnostic. A resume requires the same
 provider/model/endpoint/temperature in `.env` as the original run. Edit `.env`
 and start a new run to switch models.
 
+## Pipeline
+
+Every run walks the same four-stage LangGraph pipeline. The first two stages ask
+the model for Zod-validated JSON; the last two are deterministic code:
+
+```mermaid
+flowchart LR
+    T(["Topic"]) --> D["design<br/>LLM: plan and tables"]
+    D --> X["examples<br/>LLM: seed and operations"]
+    X --> R["render<br/>SQL, ER and README"]
+    R --> Q{"SQL, Mermaid and Markdown QA"}
+    Q -- pass --> P["publish<br/>write artifacts and qa-report"]
+    Q -- fail --> F["Failed run<br/>resume from checkpoint"]
+    P --> Z(["Run complete"])
+    D -. on error .-> F
+    X -. on error .-> F
+```
+
+A failed check stops the run before `publish`; completed stages are restored from
+checkpoints on `resume`.
+
 ## Outputs
 
 ```text
@@ -52,38 +72,32 @@ artifacts/runs/<run-id>/
     ddl/schema.sql             PostgreSQL-compatible DDL
     seed/seed.sql              Sample data
     diagrams/er.mmd            Mermaid ER source (also embedded in README)
-    code/database.ts           Illustrative SQLite driver and database port
-    code/schema.ts             Generated table/row types
-    code/repositories.ts       Data-access skeleton
-    code/services.ts           Operations from the checked plan
-    code/queries.sql           Key queries
   run.json                     Status, model identity, current stage
   events.jsonl                 Timestamped stage event log
   checkpoints.db              LangGraph SQLite checkpoints for resume
-  qa-report.json              Validation and SQL smoke-check results
+  qa-report.json              Mermaid and Markdown validation results
 ```
 
 The generated `README.md` explains what was built, assumptions and features,
-schema and relationship details, setup with `psql`, seed data, operations, and
-the code skeleton. Mermaid is embedded inline; a textual relationship
-description is included for viewers without Mermaid support. The **code
-skeleton is illustrative**: its SQLite driver is not a ready-to-run
-PostgreSQL application. SQL scripts are compiled with Kysely, Markdown is
-serialized from `mdast` nodes, Mermaid ER source is printed from a typed AST
-with `@jarenjs/mermaid`, and the TypeScript skeleton is emitted with `ts-poet`;
-all are generated from checked data. SQL targets portable PostgreSQL
-syntax and is smoke-tested against in-memory SQLite where supported; no
-PostgreSQL instance is started or claimed as tested.
+schema and relationship details, setup with `psql`, seed data, and example
+operations. Mermaid is embedded inline; a textual relationship description is
+included for viewers without Mermaid support. SQL scripts are compiled with
+Kysely, Markdown is serialized from `mdast` nodes, and Mermaid ER source is
+printed from a typed AST with `@jarenjs/mermaid` — all from checked data. The
+operation statements are model-supplied examples: they are parsed with
+`node-sql-parser` and checked against the declared tables and parameters, but
+they are not executed. SQL targets portable PostgreSQL syntax; no PostgreSQL
+instance is started or claimed as tested.
 
 ## Failures and resume
 
 Each model stage proposes structured data; Zod rejects malformed answers and
 gives the model corrective feedback. Final output is assembled in code;
-Mermaid source is validated in-process, Markdown links and required sections are
-checked with `remark`, and files are written only after the SQL smoke check
-passes. When a
-stage fails, the run id, stage, error and resume command are printed; `run.json`
-and `events.jsonl` preserve the details:
+operation statements are parsed as SQL, Mermaid source is validated in-process,
+and Markdown links and required sections are checked with `remark`. Files are
+written only after all three checks pass. When a stage fails, the run id, stage,
+error and resume command are printed; `run.json` and `events.jsonl` preserve the
+details:
 
 ```sh
 npm start -- resume <run-id>
@@ -109,8 +123,7 @@ src/
   io/
     workspace.ts            Per-run paths
     renderers/
-      sql/                  Database scripts
-      code/                 TypeScript code skeleton
+      sql/                  Database scripts and operation validation
       markdown/             Main README and ER diagram
   adapters/observability/   Optional Phoenix tracing
   test-support/             Offline fixtures
@@ -145,4 +158,4 @@ npm test
 command manually if the hooks do not fire. The pre-commit hook checks lint and
 formatting; the pre-push hook also runs the tests.
 
-Tests use injected fake model responses and an in-memory SQL smoke check.
+Tests use injected fake model responses and need no network or database.

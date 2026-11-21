@@ -46,9 +46,7 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
 
   program
     .name('db-pet-gen')
-    .description(
-      'Generate a database, code skeleton and documented Markdown project from a topic.',
-    )
+    .description('Generate a documented SQL database project from a topic.')
     .version('1.0.0');
   program
     .command('generate')

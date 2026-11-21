@@ -33,10 +33,10 @@ it('redacts credentials from stage logs and writes the manifest atomically', asy
     };
     await writeManifest(join(root, 'run.json'), manifest);
     const recorder = new RunRecorder(root, manifest, 'secret-token');
-    await recorder.progress({ kind: 'stage_started', stage: 'schema' });
+    await recorder.progress({ kind: 'stage_started', stage: 'design' });
     await recorder.progress({
       kind: 'model_retry',
-      stage: 'schema',
+      stage: 'design',
       detail: 'secret-token refused',
     });
     await recorder.finish('failed', 'secret-token failed');
@@ -48,9 +48,9 @@ it('redacts credentials from stage logs and writes the manifest atomically', asy
       ),
     ).toMatchObject({
       status: 'failed',
-      stage: 'schema',
+      stage: 'design',
       error: '[REDACTED] failed',
-      stages: { schema: { attempts: 1, status: 'running' } },
+      stages: { design: { attempts: 1, status: 'running' } },
     });
   } finally {
     await rm(root, { recursive: true, force: true });
