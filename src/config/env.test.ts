@@ -130,6 +130,7 @@ describe('loadConfig', () => {
     ['LLM_PROVIDER', 'other'],
     ['LLM_MODEL', ' '],
     ['LLM_BASE_URL', 'ftp://example.com'],
+    ['LLM_BASE_URL', 'http://example.com'],
     ['LLM_TEMPERATURE', '2.1'],
     ['LLM_JSON_MODE', 'invalid'],
     ['LLM_MAX_TOKENS', '0'],

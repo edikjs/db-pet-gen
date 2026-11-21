@@ -4,9 +4,8 @@ import {
   type BaseMessage,
 } from '@langchain/core/messages';
 import type { z } from 'zod';
-import { errorMessage, redact } from '../shared';
 import { messageText, parseJsonObject, unwrapEnvelope } from './answer';
-import { isRateLimitError, rateLimitFailure } from './rateLimit';
+import { isRateLimitError, RATE_LIMIT_FAILURE } from './rateLimit';
 import type { JsonOutcome, JsonRequest } from './types';
 
 /**
@@ -32,13 +31,8 @@ function readValue(text: string, keys: readonly string[] | undefined): unknown {
 /**
  * Asks the model until the answer is usable or the attempts run out.
  *
- * A model call that throws is retried with a plain "return the JSON" message;
- * a schema or domain rejection is retried with the stage's corrective message.
- * A call the provider refused for lack of capacity (a rate limit or an
- * exhausted quota) is the exception: the model never saw the conversation, so
- * the request reports the limit to the caller instead of spending its attempts
- * on corrective messages. The request never throws for a bad answer — the
- * caller owns the failure.
+ * The client owns transport retries. Only rejected answers get a corrective
+ * turn; provider diagnostics must never become conversation content.
  */
 export async function requestJson<T>(
   request: JsonRequest<T>,
@@ -54,15 +48,13 @@ export async function requestJson<T>(
       text = messageText(response);
     } catch (modelError) {
       if (isRateLimitError(modelError)) {
-        return { ok: false, error: rateLimitFailure(modelError) };
+        return { ok: false, error: RATE_LIMIT_FAILURE };
       }
-      error = redact(errorMessage(modelError));
-      messages.push(
-        new HumanMessage(
-          `Your previous request failed: ${error}. Return ONLY the JSON object.`,
-        ),
-      );
-      continue;
+      return {
+        ok: false,
+        error:
+          'The provider request failed; check the local client diagnostic.',
+      };
     }
 
     const value = readValue(text, request.keys);

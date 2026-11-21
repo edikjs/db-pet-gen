@@ -4,6 +4,32 @@ import { DEFAULT_LLM_MAX_RETRIES } from '../config';
 import type { ChatModelConfig } from '../config';
 import { isObject } from 'es-toolkit/compat';
 import { errorMessage, reportDiagnostic } from '../shared';
+import { messageText, parseJsonObject } from './answer';
+import type { GenerationModel } from './types';
+
+/** Keep the configured credential out of model content and persisted answers. */
+export function generationClient(
+  config: ChatModelConfig,
+  injected?: GenerationModel,
+): GenerationModel {
+  const model = injected ?? createChatModel(config);
+  return {
+    async invoke(messages) {
+      const key = config.apiKey;
+      if (key && messages.some((message) => messageText(message).includes(key)))
+        throw new Error('A credential appeared in model input.');
+      const answer = await model.invoke(messages);
+      const text = messageText(answer);
+      if (
+        key &&
+        (text.includes(key) ||
+          JSON.stringify(parseJsonObject(text)).includes(key))
+      )
+        throw new Error('A credential appeared in model output.');
+      return answer;
+    },
+  };
+}
 
 /**
  * The chat model the stages use, built from the shared LLM config.

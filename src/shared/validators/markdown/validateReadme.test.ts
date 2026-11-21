@@ -1,4 +1,4 @@
-import { readme } from '../../../test-support';
+import { diagram, readme } from '../../../test-support';
 import { validateReadme } from './validateReadme';
 
 const availablePaths = [
@@ -9,7 +9,14 @@ const availablePaths = [
 
 describe('README validation', () => {
   it('accepts a model-written README with checked sections and links', () => {
-    expect(validateReadme(readme, availablePaths)).toEqual([]);
+    expect(validateReadme(readme, availablePaths, diagram)).toEqual([]);
+    expect(
+      validateReadme(
+        readme.replace('TEXT name', 'TEXT label'),
+        availablePaths,
+        diagram,
+      ),
+    ).not.toEqual([]);
   });
 
   it('rejects unsafe links and raw HTML', () => {
@@ -17,6 +24,7 @@ describe('README validation', () => {
       validateReadme(
         `${readme}\n[external](https://bad.example)\n![image](../secret.png)\n<script>alert(1)</script>\n`,
         availablePaths,
+        diagram,
       ),
     ).toEqual(
       expect.arrayContaining([
@@ -32,10 +40,11 @@ describe('README validation', () => {
       validateReadme(
         readme.replace('## Limitations', '## Other'),
         availablePaths,
+        diagram,
       ),
     ).toContain('Missing section: Limitations.');
-    expect(validateReadme(`${readme}\n\`\`\`sql\n`, availablePaths)).toContain(
-      'Unclosed Markdown code fence.',
-    );
+    expect(
+      validateReadme(`${readme}\n\`\`\`sql\n`, availablePaths, diagram),
+    ).toContain('Unclosed Markdown code fence.');
   });
 });

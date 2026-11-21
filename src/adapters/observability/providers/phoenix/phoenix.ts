@@ -6,6 +6,7 @@ export function initPhoenix(config: ObservabilityConfig): PhoenixTracing {
     projectName: config.projectName,
     url: config.endpoint,
     batch: true,
+    global: false,
   });
 
   return { provider, shutdown: () => provider.shutdown() };

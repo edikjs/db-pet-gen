@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { HumanMessage } from '@langchain/core/messages';
 import { StateGraph, START, END } from '@langchain/langgraph';
 import {
   DesignSchema,
@@ -14,7 +11,7 @@ import {
   type Judge,
 } from '../../shared';
 import { requestJson, type JsonOutcome } from '../../llm';
-import { artifactFiles, ASSET_PATHS } from './artifacts';
+import { publishArtifacts, ASSET_PATHS } from './artifacts';
 import { PipelineState } from './pipelineState.schema';
 import {
   designPrompt,
@@ -25,10 +22,10 @@ import {
 } from './prompts';
 import type { PipelineEvent, PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 8;
+export const GRAPH_VERSION = 9;
 
 function correctiveReply(rejection: string): string {
-  return `Correct this: ${rejection}. Return only JSON data matching the requested shape.`;
+  return JSON.stringify({ validationFeedback: rejection });
 }
 
 function requireAnswer<T>(outcome: JsonOutcome<T>, stage: string): T {
@@ -73,8 +70,8 @@ function requireValue<T>(value: T | null, name: string): T {
 }
 
 function judgeViolations(value: Judge): string[] {
-  if (value.matches) return [];
   if (value.problems.length > 0) return value.problems;
+  if (value.matches) return [];
   return ['The SQL does not match the checked data.'];
 }
 
@@ -86,13 +83,13 @@ export function buildPipeline(options: PipelineOptions) {
         design: requireAnswer(
           await requestJson({
             model: options.model,
-            messages: [new HumanMessage(designPrompt(state.topic))],
+            messages: designPrompt(state.topic),
             schema: DesignSchema,
             keys: Object.keys(DesignSchema.shape),
             emptyError: EMPTY_JSON_ERROR,
             verify: async (value) => [
               ...(await validateDiagram(value.mermaid, value)),
-              ...validateDdl(value.ddl),
+              ...validateDdl(value.ddl, value),
             ],
             corrective: correctiveReply,
             attempts: STAGE_ATTEMPTS,
@@ -108,13 +105,13 @@ export function buildPipeline(options: PipelineOptions) {
           examples: requireAnswer(
             await requestJson({
               model: options.model,
-              messages: [new HumanMessage(examplesPrompt(state.topic, design))],
+              messages: examplesPrompt(state.topic, design),
               schema: ExamplesSchema,
               keys: Object.keys(ExamplesSchema.shape),
               emptyError: EMPTY_JSON_ERROR,
               verify: (value) => [
-                ...validateSeedSql(value.seedSql),
-                ...validateReadme(value.readme, ASSET_PATHS),
+                ...validateSeedSql(value.seedSql, value),
+                ...validateReadme(value.readme, ASSET_PATHS, design.mermaid),
                 ...validateOperations(value, design),
               ],
               corrective: correctiveReply,
@@ -132,9 +129,7 @@ export function buildPipeline(options: PipelineOptions) {
         requireAnswer(
           await requestJson({
             model: options.model,
-            messages: [
-              new HumanMessage(judgePrompt(state.topic, design, examples)),
-            ],
+            messages: judgePrompt(state.topic, design, examples),
             schema: JudgeSchema,
             keys: Object.keys(JudgeSchema.shape),
             emptyError: EMPTY_JSON_ERROR,
@@ -151,16 +146,7 @@ export function buildPipeline(options: PipelineOptions) {
       stage(options, 'publish', async () => {
         const design = requireValue(state.design, 'design');
         const examples = requireValue(state.examples, 'examples');
-        for (const [path, contents] of artifactFiles(design, examples)) {
-          const destination = join(options.workspace, path);
-          await mkdir(dirname(destination), { recursive: true });
-          await writeFile(destination, contents, 'utf8');
-        }
-        await writeFile(
-          join(options.workspace, 'qa-report.json'),
-          `${JSON.stringify({ verdict: 'pass' }, null, 2)}\n`,
-          'utf8',
-        );
+        await publishArtifacts(options.workspace, design, examples);
         return {};
       }),
     )

@@ -31,7 +31,7 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
   for ER source, and `remark` for Markdown. A separate model stage reviews all
   artifacts against the checked data.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
-- `src/adapters/observability/` — optional Phoenix tracing.
+- `src/adapters/observability/` — optional Phoenix stage timing and status; never attach prompts, completions or provider diagnostics.
 - `src/test-support/fixtures/` — network-free fake model and valid fixture.
 
 Before implementing a common concern (parsing, validation, collections,
@@ -49,8 +49,9 @@ parser. A separate model review compares all generated artifacts with the
 checked design and seed rows. Nothing is executed — do not claim operations were
 run against PostgreSQL.
 
-- The SQL and Markdown validators only check syntax, structure and allowed
-  links; design comparison belongs to the model review stage. Model-written SQL,
+- In addition to syntax, structure and allowed links, compare DDL tables/columns
+  and base types, literal seed rows, and the README's ER copy against the checked
+  data. The judge handles the remaining semantic review. Model-written SQL,
   Mermaid and Markdown must pass their checks before they are written.
 - Antipattern: pass-through wrappers. Do not create a one-line function that
   only renames a library call (for example `camelName` around `camelCase`).

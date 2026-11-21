@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const ManifestSchema = z.object({
   version: z.number().int(),
   runId: z.string(),
+  threadId: z.string().optional(),
   topic: z.string(),
   status: z.enum(['running', 'failed', 'completed']),
   stage: z.string().nullable(),

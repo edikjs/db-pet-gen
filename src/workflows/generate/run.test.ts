@@ -1,10 +1,10 @@
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import { loadConfig } from '../../config';
 import { resumeRun, runGenerate } from './run';
-import { FixtureModel } from '../../test-support';
+import { design, FixtureModel } from '../../test-support';
 
 describe('a topic-only generation run', () => {
   let root: string;
@@ -143,5 +143,149 @@ describe('a topic-only generation run', () => {
     await expect(
       resumeRun({ runId, config: changed, model: new FixtureModel() }),
     ).rejects.toThrow(/same LLM_/u);
+  });
+
+  it('allows exactly one resume to change a failed manifest', async () => {
+    const config = configFor(root);
+    await expect(
+      runGenerate({
+        topic: 'Pet records',
+        config,
+        model: new FixtureModel('examples'),
+      }),
+    ).rejects.toThrow();
+    const [runId] = await readdir(root);
+    const contenders = [new FixtureModel(), new FixtureModel()];
+    const results = await Promise.allSettled(
+      contenders.map((model) => resumeRun({ runId, config, model })),
+    );
+    expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(
+      1,
+    );
+    expect(
+      results.find((r) => r.status === 'rejected')?.reason.message,
+    ).toContain('database is locked');
+    expect(contenders.flatMap((m) => m.calls)).toEqual(['examples', 'judge']);
+    expect(
+      JSON.parse(await readFile(join(root, runId, 'run.json'), 'utf8'))
+        .resumptions,
+    ).toBe(1);
+  });
+
+  it('republishes terminal checkpoint contents without model calls or PID checks', async () => {
+    const config = configFor(root);
+    const run = await runGenerate({
+      topic: 'Pet records',
+      config,
+      model: new FixtureModel(),
+    });
+    const file = join(run.workspace, 'run.json');
+    const manifest = JSON.parse(await readFile(file, 'utf8'));
+    await writeFile(
+      file,
+      JSON.stringify({ ...manifest, status: 'running', pid: process.pid }),
+    );
+    await rm(run.readmePath);
+    await writeFile(join(run.workspace, 'qa-report.json'), '{}');
+    const model = new FixtureModel();
+    await resumeRun({ runId: run.runId, config, model });
+    expect(model.calls).toEqual([]);
+    expect(await readFile(run.readmePath, 'utf8')).toBe(
+      run.state.examples?.readme,
+    );
+    expect(
+      JSON.parse(await readFile(join(run.workspace, 'qa-report.json'), 'utf8')),
+    ).toEqual({ verdict: 'pass' });
+    expect(JSON.parse(await readFile(file, 'utf8')).status).toBe('completed');
+  });
+
+  it('restarts a missing checkpoint and persists its new thread for the next resume', async () => {
+    const config = configFor(root);
+    await expect(
+      runGenerate({
+        topic: 'Pet records',
+        config,
+        model: new FixtureModel('judge'),
+      }),
+    ).rejects.toThrow();
+    const [runId] = await readdir(root);
+    await rm(join(root, runId, 'checkpoints.db'));
+    const restart = new FixtureModel('examples');
+    await expect(
+      resumeRun({ runId, config, model: restart }),
+    ).rejects.toThrow();
+    expect(restart.calls).toEqual(['design', 'examples']);
+    const model = new FixtureModel();
+    await resumeRun({ runId, config, model });
+    expect(model.calls).toEqual(['examples', 'judge']);
+  });
+
+  it('does not publish a contradictory judge verdict', async () => {
+    const config = configFor(root);
+    const fixture = new FixtureModel();
+    let reviews = 0;
+    const model = {
+      invoke: async (messages: BaseMessage[]) => {
+        if (String(messages[0].content).startsWith('STAGE:judge')) {
+          reviews++;
+          return new AIMessage(
+            JSON.stringify({ matches: true, problems: ['Missing constraint'] }),
+          );
+        }
+        return fixture.invoke(messages);
+      },
+    };
+    await expect(
+      runGenerate({ topic: 'Pet records', config, model }),
+    ).rejects.toThrow('Missing constraint');
+    expect(reviews).toBe(2);
+    const [runId] = await readdir(root);
+    expect(await readdir(join(root, runId))).not.toContain('README.md');
+    expect(
+      JSON.parse(await readFile(join(root, runId, 'qa-report.json'), 'utf8'))
+        .verdict,
+    ).toBe('failed');
+  });
+
+  it('does not silently restart an unreadable checkpoint', async () => {
+    const config = configFor(root);
+    await expect(
+      runGenerate({
+        topic: 'Pets',
+        config,
+        model: new FixtureModel('examples'),
+      }),
+    ).rejects.toThrow();
+    const [runId] = await readdir(root);
+    await writeFile(join(root, runId, 'checkpoints.db'), 'damaged journal');
+    const model = new FixtureModel();
+    await expect(resumeRun({ runId, config, model })).rejects.toThrow(
+      /restore a valid checkpoint/i,
+    );
+    expect(model.calls).toEqual([]);
+  });
+
+  it('blocks a credential in the topic before creating files, and in a reply before checkpointing', async () => {
+    const config = configFor(root);
+    const key = config.chat.apiKey!;
+    await expect(runGenerate({ topic: `pets ${key}`, config })).rejects.toThrow(
+      'credential',
+    );
+    expect(await readdir(root)).toEqual([]);
+    const model = {
+      invoke: jest.fn(
+        async () => new AIMessage(JSON.stringify({ ...design, title: key })),
+      ),
+    };
+    await expect(runGenerate({ topic: 'Pets', config, model })).rejects.toThrow(
+      'provider request failed',
+    );
+    expect(model.invoke).toHaveBeenCalledTimes(1);
+    const [runId] = await readdir(root);
+    const workspace = join(root, runId);
+    for (const file of await readdir(workspace))
+      expect(
+        (await readFile(join(workspace, file))).includes(Buffer.from(key)),
+      ).toBe(false);
   });
 });

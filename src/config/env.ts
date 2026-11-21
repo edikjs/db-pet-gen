@@ -1,3 +1,5 @@
+import { trimEnd } from 'es-toolkit';
+import { redact } from '../shared/utils';
 import type { AppConfig, ChatProvider } from './types';
 import { EnvSchema } from './env.schema';
 
@@ -17,7 +19,9 @@ export function loadConfig(
     const issues = parsed.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`Invalid environment configuration: ${issues}`);
+    throw new Error(
+      `Invalid environment configuration: ${redact(issues, env.LLM_API_KEY?.trim())}`,
+    );
   }
 
   const values = parsed.data;
@@ -29,6 +33,20 @@ export function loadConfig(
     );
   }
 
+  if (
+    [
+      values.LLM_MODEL,
+      values.LLM_BASE_URL,
+      values.RUNS_DIR,
+      values.PHOENIX_PROJECT_NAME,
+      values.PHOENIX_COLLECTOR_ENDPOINT,
+    ].some((value) => value?.includes(apiKey))
+  ) {
+    throw new Error(
+      'A non-secret configuration field contains the model credential.',
+    );
+  }
+
   const maxConcurrency =
     values.LLM_MAX_CONCURRENCY ?? (provider === 'groq' ? 1 : undefined);
 
@@ -36,7 +54,7 @@ export function loadConfig(
     chat: {
       provider,
       model: values.LLM_MODEL,
-      baseUrl: (values.LLM_BASE_URL ?? BASE_URLS[provider]).replace(/\/+$/, ''),
+      baseUrl: trimEnd(values.LLM_BASE_URL ?? BASE_URLS[provider], '/'),
       temperature: values.LLM_TEMPERATURE,
       jsonMode: values.LLM_JSON_MODE === 'on',
       ...(apiKey ? { apiKey } : {}),

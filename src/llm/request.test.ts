@@ -56,20 +56,22 @@ describe('requestJson', () => {
     expect(calls[1]).toContain('value');
   });
 
-  it('asks again when a model call throws, with a redacted error', async () => {
-    const calls: string[] = [];
-    const model = createModel(
-      [new Error('network down for Bearer sk-private12345'), '{"value": 3}'],
-      calls,
-    );
+  it.each(['gsk_synthetic', 'opk_synthetic'])(
+    'keeps echoed %s out of the conversation and diagnostics',
+    async (apiKey) => {
+      const calls: string[] = [];
+      const model = createModel(
+        [new Error(`network down for ${apiKey}`), '{"value": 3}'],
+        calls,
+      );
 
-    const outcome = await requestJson(request(model));
+      const outcome = await requestJson(request(model));
 
-    expect(outcome).toEqual({ ok: true, data: { value: 3 } });
-    expect(calls[1]).toContain('network down');
-    expect(calls[1]).toContain('[REDACTED]');
-    expect(calls[1]).not.toContain('sk-private12345');
-  });
+      expect(outcome.ok).toBe(false);
+      expect(JSON.stringify(outcome)).not.toContain(apiKey);
+      expect(calls).toEqual(['Give me the answer.']);
+    },
+  );
 
   it('reports a rate-limited call instead of asking again', async () => {
     const calls: string[] = [];
@@ -86,7 +88,7 @@ describe('requestJson', () => {
     expect(calls).toHaveLength(1);
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) {
-      expect(outcome.error).toContain('429 Rate limit reached');
+      expect(outcome.error).toContain('rate-limited');
       expect(outcome.error).toContain('LLM_MAX_CONCURRENCY');
     }
   });

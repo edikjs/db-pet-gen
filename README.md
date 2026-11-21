@@ -85,6 +85,7 @@ artifacts/runs/<run-id>/
   run.json                     Status, model identity, current stage
   events.jsonl                 Timestamped stage event log
   checkpoints.db               LangGraph SQLite checkpoints for resume
+  run.lock                     Exclusive SQLite ownership lock
   qa-report.json               Pass/fail report
 ```
 
@@ -136,8 +137,8 @@ Default `LLM_BASE_URL` values:
 | `opencode`   | `https://opencode.ai/zen/v1`     |
 | `groq`       | `https://api.groq.com/openai/v1` |
 
-A custom `LLM_BASE_URL` must be an HTTP(S) URL with no credentials, query string
-or fragment. Provider JSON mode is advisory: the schema still travels in every
+A custom `LLM_BASE_URL` requires HTTPS (HTTP is allowed on loopback only), with
+no credentials, query string or fragment. Provider JSON mode is advisory: the schema still travels in every
 prompt and answers are validated with Zod afterwards, because some models ignore
 or wrap provider-level JSON. Refused calls are retried with exponentially growing
 waits; a rate limit that outlives those retries fails the run with advice to
@@ -190,8 +191,8 @@ flowchart LR
 | `publish`  | deterministic     | Writes the four deliverables from the checked data plus a passing `qa-report.json`              |
 
 An unusable answer is sent back to the model once with the exact rejection and a
-request to return matching JSON. A provider rate limit is not retried at this
-level, because the model never saw that conversation. Completed stages are
+request to return matching JSON. The client owns transport retries; provider
+error text is never sent to the model. Completed stages are
 restored from SQLite checkpoints on resume instead of being asked again.
 
 ## Data contracts and example data
@@ -416,8 +417,9 @@ binding before the statements can run in `psql`.
 ## Validation rules
 
 SQL, Mermaid and Markdown are model-written strings checked before anything is
-written. The SQL and Markdown validators only check syntax, structure and
-allowed links; design comparison belongs to the model review stage.
+written. Beyond syntax and allowed links, the generator compares parsed DDL
+table and column names and base types to the design, literal INSERT rows to the
+structured seed data, and the single embedded ER diagram to the checked asset.
 
 | Artifact       | Library           | Checks                                                                                                                   |
 | -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -433,8 +435,10 @@ Mermaid markup (`<`, `>`), directives (`class`, `classdef`, `click`, `linkStyle`
 `assets/ddl/schema.sql`, `assets/seed/seed.sql`, `assets/diagrams/er.mmd` or a
 fragment; external, absolute and `..` links are rejected.
 
-Every artifact is checked before `publish`, and the judge compares all four
-against the checked design and seed rows. None of the SQL is executed: the
+The stage instructions are separate from the topic and artifact JSON. A passing
+report means deterministic checks passed and the judge returned `matches: true`
+with no problems. The judge's assessment of constraints, operations and prose
+is a model opinion, not proof of semantic equivalence. None of the SQL is executed: the
 generator never starts or claims to have tested a PostgreSQL instance.
 
 ## Run outputs
@@ -453,7 +457,7 @@ resumption count, per-stage attempts and timings, and the model identity
 
 ```json
 {
-  "version": 8,
+  "version": 9,
   "runId": "20261121-092452-public-library-database-018b02",
   "topic": "Public library database",
   "status": "completed",
@@ -501,9 +505,17 @@ and `run.json`, `events.jsonl` and `qa-report.json` preserve the details:
 npm start -- resume <run-id>
 ```
 
-Resume restores completed stages from `checkpoints.db` rather than asking the
-model again. It refuses a run that is already completed, one still owned by a
-live process, one written by a different graph version, and one whose provider,
+Generate and resume hold an exclusive SQLite transaction on `run.lock` through
+shutdown. The OS releases it when a process exits, including after a crash;
+leave the lock file in place. Resume continues a pending checkpoint without
+repeating completed model calls. If the checkpoint is missing, it starts at
+design on a fresh thread. If publication finished before the manifest was
+finalized, it restores all four files and the QA report from the terminal
+checkpoint without calling the model. An unreadable store is an error; restore
+a good backup or start a new run.
+
+Resume refuses a completed run, an active lock, a different graph version
+(including older runs checked under weaker QA rules), or a run whose provider,
 model, base URL or temperature in `.env` differs from the original run. Start a
 new run if you need different model settings.
 
@@ -520,10 +532,9 @@ npm start -- generate --topic "Library lending"
 npm run phoenix:down
 ```
 
-Phoenix uses <http://localhost:6006>; the Docker service is optional.
-`@opentelemetry/api` is pinned to `1.9.1` at the root: the OpenInference v2
-packages require `<1.10.0`, while Phoenix v3 and its OpenTelemetry v3 packages
-require `>=1.10.0` and receive a nested copy.
+Phoenix uses <http://localhost:6006>; the Docker service is optional. The
+generator exports stage names, durations and success/failure status. It never
+attaches model inputs, outputs, credentials or provider error text to spans.
 
 ```sh
 npm run build

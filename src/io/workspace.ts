@@ -2,16 +2,18 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import anyAscii from 'any-ascii';
+import { kebabCase } from 'es-toolkit';
 import type { RunWorkspace } from './types';
 
 function nameRun(topic: string): string {
-  const slug =
-    anyAscii(topic)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/gu, '-')
-      .replace(/^-|-$/gu, '')
-      .slice(0, 48) || 'database';
-  return `${new Date().toISOString().replace(/[-:]/gu, '').replace('T', '-').slice(0, 15)}-${slug}-${randomBytes(3).toString('hex')}`;
+  const slug = kebabCase(anyAscii(topic)).slice(0, 48) || 'database';
+  const stamp = new Date()
+    .toISOString()
+    .replaceAll('-', '')
+    .replaceAll(':', '')
+    .replace('T', '-')
+    .slice(0, 15);
+  return `${stamp}-${slug}-${randomBytes(3).toString('hex')}`;
 }
 
 export async function createRunWorkspace(
@@ -20,7 +22,10 @@ export async function createRunWorkspace(
 ): Promise<RunWorkspace> {
   const trimmed = topic.trim();
   if (!trimmed) throw new Error('A nonempty topic is required.');
-  if (trimmed.length > 160 || /[\r\n\0]/u.test(trimmed)) {
+  if (
+    trimmed.length > 160 ||
+    ['\r', '\n', '\0'].some((control) => trimmed.includes(control))
+  ) {
     throw new Error('The topic must be one line of at most 160 characters.');
   }
   const runId = nameRun(trimmed);
@@ -32,6 +37,12 @@ export async function createRunWorkspace(
 }
 
 export function openRunWorkspace(runsDir: string, runId: string): RunWorkspace {
-  if (!/^[a-z0-9][a-z0-9-]*$/u.test(runId)) throw new Error('Invalid run id.');
+  const allowed = 'abcdefghijklmnopqrstuvwxyz0123456789-';
+  if (
+    !runId ||
+    runId.startsWith('-') ||
+    !Array.from(runId).every((char) => allowed.includes(char))
+  )
+    throw new Error('Invalid run id.');
   return { runId, root: resolve(runsDir, runId) };
 }

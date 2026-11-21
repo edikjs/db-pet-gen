@@ -39,7 +39,16 @@ const httpUrl = z
 export const EnvSchema = z.object({
   LLM_PROVIDER: z.enum(CHAT_PROVIDERS),
   LLM_MODEL: z.string().trim().min(1),
-  LLM_BASE_URL: httpUrl.optional(),
+  LLM_BASE_URL: httpUrl
+    .refine((value) => {
+      if (!URL.canParse(value)) return false;
+      const url = new URL(value);
+      return (
+        url.protocol === 'https:' ||
+        ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      );
+    }, 'Use HTTPS for remote model endpoints.')
+    .optional(),
   LLM_API_KEY: z.string().trim().optional(),
   LLM_TEMPERATURE: numberFromEnv.pipe(z.number().min(0).max(2)).default(0),
   LLM_JSON_MODE: z.enum(['on', 'off']).default('on'),

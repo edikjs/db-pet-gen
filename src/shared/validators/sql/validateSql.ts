@@ -1,5 +1,7 @@
 import { Parser } from 'node-sql-parser';
 import { errorMessage } from '../../utils';
+import type { DataModel, SeedData } from '../../schemas';
+import { ddlDataIssues, seedDataIssues } from './artifactData';
 
 const parser = new Parser();
 const DIALECT = { database: 'Postgresql' } as const;
@@ -23,6 +25,7 @@ function check(
   sql: string,
   label: string,
   allowed: readonly string[],
+  compare: (statements: unknown[]) => string[],
 ): string[] {
   try {
     const ast = parser.astify(sql, DIALECT);
@@ -30,7 +33,7 @@ function check(
     if (statements.length === 0)
       return [`${label} must contain SQL statements.`];
     return statements.every((statement) => allowed.includes(kind(statement)))
-      ? []
+      ? compare(statements)
       : [`${label} may contain only ${allowed.join(' or ')}.`];
   } catch (error) {
     return [`Invalid ${label}: ${errorMessage(error)}`];
@@ -38,11 +41,15 @@ function check(
 }
 
 /** Checks that the model wrote parseable PostgreSQL DDL statements. */
-export function validateDdl(sql: string): string[] {
-  return check(sql, 'DDL', ['create table', 'create index']);
+export function validateDdl(sql: string, design: DataModel): string[] {
+  return check(sql, 'DDL', ['create table', 'create index'], (ast) =>
+    ddlDataIssues(ast, design),
+  );
 }
 
 /** Checks that the model wrote parseable PostgreSQL INSERT statements. */
-export function validateSeedSql(sql: string): string[] {
-  return check(sql, 'seed SQL', ['insert']);
+export function validateSeedSql(sql: string, examples: SeedData): string[] {
+  return check(sql, 'seed SQL', ['insert'], (ast) =>
+    seedDataIssues(ast, examples),
+  );
 }

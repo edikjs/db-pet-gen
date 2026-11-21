@@ -24,7 +24,7 @@ describe('generation graph', () => {
       ['judgeStage', 'publishStage'],
       ['publishStage', '__end__'],
     ]);
-    expect(GRAPH_VERSION).toBe(8);
+    expect(GRAPH_VERSION).toBe(9);
   });
 
   it('asks the model for each generation stage and reports every stage', async () => {

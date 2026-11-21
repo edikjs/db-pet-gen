@@ -1,6 +1,6 @@
 import { isPlainObject } from 'es-toolkit';
 import { isObject } from 'es-toolkit/compat';
-import { errorMessage, redact } from '../shared';
+import { errorMessage } from '../shared';
 
 /**
  * How the stages recognise a provider that refused a call for now.
@@ -58,11 +58,5 @@ export function isRateLimitError(error: unknown): boolean {
   return RATE_LIMIT_SIGNALS.some((signal) => message.includes(signal));
 }
 
-/**
- * What a stage reports when a rate limit outlives the client's retries: the
- * provider's own text (redacted, so a key cannot leak) plus the two knobs that
- * keep a run inside a provider's per-minute budget.
- */
-export function rateLimitFailure(error: unknown): string {
-  return `${redact(errorMessage(error))} The provider rate-limited the model (or the account is out of quota); retry the run once the limit resets, and lower LLM_MAX_CONCURRENCY or LLM_MAX_TOKENS if it keeps happening.`;
-}
+export const RATE_LIMIT_FAILURE =
+  'The provider rate-limited the model (or the account is out of quota); retry the run once the limit resets, and lower LLM_MAX_CONCURRENCY or LLM_MAX_TOKENS if it keeps happening.';

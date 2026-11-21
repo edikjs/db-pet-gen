@@ -13,7 +13,7 @@ export function errorMessage(error: unknown): string {
  */
 export function redact(value: string, apiKey?: string): string {
   const masked = apiKey ? value.replaceAll(apiKey, '[REDACTED]') : value;
-  return redactSecrets(masked.slice(0, 2000), { mask: '[REDACTED]' });
+  return redactSecrets(masked, { mask: '[REDACTED]' }).slice(0, 2000);
 }
 
 /**

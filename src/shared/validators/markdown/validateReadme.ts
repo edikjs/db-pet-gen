@@ -1,3 +1,4 @@
+import { isEqual } from 'es-toolkit';
 import type { Root } from 'mdast';
 import { toString } from 'mdast-util-to-string';
 import remarkParse from 'remark-parse';
@@ -17,6 +18,10 @@ export const README_SECTIONS: readonly string[] = [
 export const README_FALLBACK = 'Relationships (text alternative)';
 
 const parser = unified().use(remarkParse);
+
+function normalizeDiagram(source: string): string {
+  return source.replaceAll('\r\n', '\n').trim();
+}
 
 interface Fence {
   readonly character: string;
@@ -86,6 +91,7 @@ function checkTarget(
 export function validateReadme(
   markdown: string,
   availablePaths: readonly string[],
+  diagram: string,
 ): string[] {
   const issues: string[] = [];
   const known = new Set(
@@ -97,7 +103,7 @@ export function validateReadme(
   const sectionNames: string[] = [];
   let hasTitle = false;
   let hasFallback = false;
-  let hasMermaid = false;
+  const diagrams: string[] = [];
   let hasHtml = false;
 
   visit(tree, (node) => {
@@ -109,8 +115,7 @@ export function validateReadme(
       if (node.depth === 3 && value === README_FALLBACK) hasFallback = true;
     }
     if (node.type === 'code' && node.lang === 'mermaid') {
-      const first = node.value.split('\n').find((line) => line.trim() !== '');
-      if (first?.trim() === 'erDiagram') hasMermaid = true;
+      diagrams.push(normalizeDiagram(node.value));
     }
   });
 
@@ -122,7 +127,8 @@ export function validateReadme(
       issues.push(`Missing section: ${section}.`);
   });
   if (!hasFallback) issues.push('Missing text relationship fallback.');
-  if (!hasMermaid) issues.push('Missing Mermaid ER diagram.');
+  if (!isEqual(diagrams, [normalizeDiagram(diagram)]))
+    issues.push('Embed exactly one copy of the checked Mermaid ER diagram.');
 
   visit(tree, 'link', (node) => checkTarget(node.url, known, issues));
   visit(tree, 'image', (node) => checkTarget(node.url, known, issues));

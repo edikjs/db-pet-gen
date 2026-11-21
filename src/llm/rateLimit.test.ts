@@ -1,4 +1,4 @@
-import { isRateLimitError, rateLimitFailure } from './rateLimit';
+import { isRateLimitError } from './rateLimit';
 
 /** The body Groq returns for a tokens-per-minute overrun. */
 const GROQ_MESSAGE =
@@ -35,25 +35,5 @@ describe('isRateLimitError', () => {
     );
     expect(isRateLimitError('connection reset')).toBe(false);
     expect(isRateLimitError(undefined)).toBe(false);
-  });
-});
-
-describe('rateLimitFailure', () => {
-  it('keeps the provider text and says what to change', () => {
-    const failure = rateLimitFailure(new Error(GROQ_MESSAGE));
-
-    expect(failure).toContain('429 Rate limit reached');
-    expect(failure).toContain('Please try again in 28.155s.');
-    expect(failure).toContain('LLM_MAX_CONCURRENCY');
-    expect(failure).toContain('LLM_MAX_TOKENS');
-  });
-
-  it('redacts a key embedded in the provider text', () => {
-    const failure = rateLimitFailure(
-      new Error('429 rate limit for Bearer sk-secret12345'),
-    );
-
-    expect(failure).toContain('[REDACTED]');
-    expect(failure).not.toContain('sk-secret12345');
   });
 });

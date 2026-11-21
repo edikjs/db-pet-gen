@@ -7,6 +7,10 @@ export interface ObservabilityConfig {
 }
 
 export interface ObservabilityHandle {
+  stageEvent: (
+    stage: string,
+    kind: 'stage_started' | 'stage_finished' | 'stage_failed',
+  ) => void;
   shutdown: () => Promise<void>;
 }
 
