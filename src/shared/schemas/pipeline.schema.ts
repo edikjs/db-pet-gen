@@ -6,12 +6,15 @@ import {
 } from './database.schema';
 import { ProjectPlanSchema } from './plan.schema';
 
-/** The checked design data produced by the first model stage. */
-export const DesignSchema = ProjectPlanSchema.merge(DataModelSchema).extend({
-  /** Mermaid ER source written by the model and checked against the design. */
-  mermaid: z.string().min(1),
+export const DesignAnswerSchema = ProjectPlanSchema.merge(
+  DataModelSchema,
+).extend({
   /** PostgreSQL DDL written by the model and checked against the design. */
   ddl: z.string().min(1),
+});
+/** The accepted design includes the ER source rendered from its checked tables. */
+export const DesignSchema = DesignAnswerSchema.extend({
+  mermaid: z.string().min(1),
 });
 export type Design = z.infer<typeof DesignSchema>;
 

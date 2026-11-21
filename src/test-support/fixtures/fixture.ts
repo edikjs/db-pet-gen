@@ -141,16 +141,16 @@ export const operations: Operations = {
 };
 
 export const diagram = `erDiagram
-owners {
-  INTEGER id PK
-  TEXT name
+"owners" {
+  INTEGER \`id\` PK
+  TEXT \`name\`
 }
-pets {
-  INTEGER id PK
-  INTEGER owner_id FK
-  TEXT name
+"pets" {
+  INTEGER \`id\` PK
+  INTEGER \`owner_id\` FK
+  TEXT \`name\`
 }
-owners ||--o{ pets : owner_id
+"owners" ||--o{ "pets" : "owner_id"
 `;
 
 export const ddl = `create table "owners" ("id" integer not null, "name" text not null, constraint "pk_owners" primary key ("id"));
@@ -188,17 +188,7 @@ The model has 2 tables. Primary keys identify rows; declared foreign keys connec
 Mermaid source: [assets/diagrams/er.mmd](assets/diagrams/er.mmd).
 
 \`\`\`mermaid
-erDiagram
-owners {
-  INTEGER id PK
-  TEXT name
-}
-pets {
-  INTEGER id PK
-  INTEGER owner_id FK
-  TEXT name
-}
-owners ||--o{ pets : owner_id
+${diagram.trimEnd()}
 \`\`\`
 
 ### Relationships (text alternative)
@@ -291,12 +281,12 @@ DELETE FROM pets WHERE id = :id
 - Operation statements are parsed and checked, but not executed against a live database.
 `;
 
-export const design: Design = {
+const designAnswer = {
   ...projectPlan,
   ...dataModel,
-  mermaid: diagram,
   ddl,
 };
+export const design: Design = { ...designAnswer, mermaid: diagram };
 
 export const examples: Examples = {
   ...seedData,
@@ -317,7 +307,11 @@ export class FixtureModel implements GenerationModel {
     this.calls.push(stage);
     if (stage === this.failStage)
       throw new Error(`simulated model outage: ${stage}`);
-    const answers: Record<string, unknown> = { design, examples, judge };
+    const answers: Record<string, unknown> = {
+      design: designAnswer,
+      examples,
+      judge,
+    };
     return new AIMessage(JSON.stringify(answers[stage]));
   }
 }

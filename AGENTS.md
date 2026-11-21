@@ -27,8 +27,9 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 - `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
   SQLite checkpoints.
 - `src/io/workspace.ts` — run paths. Validation lives in `src/shared/validators/`:
-  `node-sql-parser` for model-written DDL, seed and operations, official-Mermaid
-  for ER source, and `remark` for Markdown. A separate model stage reviews all
+  `node-sql-parser` for model-written DDL, seed and operations, and `remark` for
+  Markdown. `src/workflows/generate/renderDiagram.ts` renders ER source from checked
+  tables and parses it with Mermaid. A separate model stage reviews all
   artifacts against the checked data.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
 - `src/adapters/observability/` — optional Phoenix stage timing and status; never attach prompts, completions or provider diagnostics.
@@ -50,8 +51,9 @@ Use concrete domain or library types when the input shape is known. Reserve
 values; narrow it there rather than passing it through typed code. Do not
 replace it with `any` or a double assertion.
 
-Model responses provide **structured data**. SQL, ER source and Markdown are
-model-written strings checked before they are written. Operation statements, DDL
+Model responses provide **structured data**. SQL and Markdown are
+model-written strings checked before they are written. The accepted design keeps
+the rendered ER source for examples, review, checkpoint recovery and publication. Operation statements, DDL
 and seed SQL are parsed with `node-sql-parser`; Markdown structure, raw HTML and
 links are checked with `remark`; ER source is parsed with the official Mermaid
 parser. A separate model review compares all generated artifacts with the
@@ -60,8 +62,8 @@ run against PostgreSQL.
 
 - In addition to syntax, structure and allowed links, compare DDL tables/columns
   and base types, literal seed rows, and the README's ER copy against the checked
-  data. The judge handles the remaining semantic review. Model-written SQL,
-  Mermaid and Markdown must pass their checks before they are written.
+  data. The judge handles the remaining semantic review. A diagram render or parse
+  failure is a generator error and must not consume a corrective model turn.
 - Validate design keys and references before accepting a design. Seed each
   design table once in order with 2–5 rows, matching columns, keys and parents.
 - Each operation is one parsed statement. Compare physical table references

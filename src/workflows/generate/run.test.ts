@@ -67,7 +67,8 @@ describe('a topic-only generation run', () => {
     expect(readme).toContain('Pet records');
     expect(ddl).toContain('create table "pets"');
     expect(seed).toContain('insert into "owners" ("id", "name")');
-    expect(er).toContain('owners ||--o{ pets : owner_id');
+    expect(er).toContain('"owners" ||--o{ "pets" : "owner_id"');
+    expect(readme).toContain(`\`\`\`mermaid\n${er}\`\`\``);
     expect(await readdir(join(run.workspace, 'assets'))).toEqual([
       'ddl',
       'diagrams',
@@ -120,6 +121,7 @@ describe('a topic-only generation run', () => {
     const result = await resumeRun({ runId, config, model });
     expect(result.readmePath).toContain('README.md');
     expect(model.calls).toEqual(['examples', 'judge']);
+    expect(result.state.design?.mermaid).toBe(design.mermaid);
     const manifest = JSON.parse(
       await readFile(join(result.workspace, 'run.json'), 'utf8'),
     ) as { status: string; resumptions: number };

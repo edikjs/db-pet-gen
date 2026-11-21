@@ -1,5 +1,4 @@
-import { SpanStatusCode } from '@arizeai/phoenix-otel';
-import { initPhoenix } from './providers';
+import { register, SpanStatusCode } from '@arizeai/phoenix-otel';
 import type { ObservabilityConfig, ObservabilityHandle } from './types';
 
 export function initObservability(
@@ -9,8 +8,13 @@ export function initObservability(
     return undefined;
   }
 
-  const tracing = initPhoenix(config);
-  const tracer = tracing.provider.getTracer('db-pet-gen');
+  const provider = register({
+    projectName: config.projectName,
+    url: config.endpoint,
+    batch: true,
+    global: false,
+  });
+  const tracer = provider.getTracer('db-pet-gen');
   const spans = new Map<string, ReturnType<typeof tracer.startSpan>>();
   return {
     stageEvent(stage, kind) {
@@ -26,6 +30,6 @@ export function initObservability(
       span?.end();
       spans.delete(stage);
     },
-    shutdown: tracing.shutdown,
+    shutdown: () => provider.shutdown(),
   };
 }

@@ -1,5 +1,5 @@
-import type { ObservabilityConfig } from '../../types';
-import { initPhoenix } from './phoenix';
+import type { ObservabilityConfig } from './types';
+import { initObservability } from './observability';
 
 const config: ObservabilityConfig = {
   provider: 'phoenix',
@@ -7,11 +7,10 @@ const config: ObservabilityConfig = {
   projectName: 'test-project',
 };
 
-describe('initPhoenix', () => {
+describe('Phoenix tracing', () => {
   it('registers a tracer provider and exposes a shutdown hook', async () => {
-    const tracing = initPhoenix(config);
+    const tracing = initObservability(config)!;
 
-    expect(tracing.provider).toBeDefined();
     await expect(tracing.shutdown()).resolves.toBeUndefined();
   });
 });

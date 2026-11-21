@@ -1,10 +1,11 @@
 import { StateGraph, START, END } from '@langchain/langgraph';
+import type { BaseMessage } from '@langchain/core/messages';
+import type { z } from 'zod';
 import {
-  DesignSchema,
+  DesignAnswerSchema,
   ExamplesSchema,
   JudgeSchema,
   validateDdl,
-  validateDiagram,
   validateOperations,
   validateReadme,
   validateSeedSql,
@@ -13,9 +14,10 @@ import {
   type Examples,
   type Judge,
 } from '../../shared';
-import { requestJson, type JsonOutcome } from '../../llm';
+import { requestJson } from '../../llm';
 import { publishArtifacts, ASSET_PATHS } from './artifacts';
 import { PipelineState } from './pipelineState.schema';
+import { renderDiagram } from './renderDiagram';
 import {
   designPrompt,
   EMPTY_JSON_ERROR,
@@ -25,20 +27,7 @@ import {
 } from './prompts';
 import type { PipelineEvent, PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 11;
-
-function correctiveReply(rejection: string): string {
-  return JSON.stringify({ validationFeedback: rejection });
-}
-
-function requireAnswer<T>(outcome: JsonOutcome<T>, stage: string): T {
-  if (!outcome.ok) {
-    throw new Error(
-      `The model did not return a usable ${stage}: ${outcome.error}`,
-    );
-  }
-  return outcome.data;
-}
+export const GRAPH_VERSION = 12;
 
 async function report(
   options: PipelineOptions,
@@ -89,43 +78,52 @@ function judgeViolations(value: Judge): string[] {
 
 /** A new run and a resume compile exactly the same graph. */
 export function buildPipeline(options: PipelineOptions) {
+  async function ask<T>(
+    name: string,
+    messages: BaseMessage[],
+    schema: z.ZodType<T> & Pick<z.ZodObject, 'shape'>,
+    verify: (value: T) => string[] | Promise<string[]>,
+  ) {
+    const outcome = await requestJson({
+      model: options.model,
+      messages,
+      schema,
+      keys: Object.keys(schema.shape),
+      verify,
+      emptyError: EMPTY_JSON_ERROR,
+      corrective: (validationFeedback) =>
+        JSON.stringify({ validationFeedback }),
+      attempts: STAGE_ATTEMPTS,
+    });
+    if (!outcome.ok) {
+      throw new Error(
+        `The model did not return a usable ${name}: ${outcome.error}`,
+      );
+    }
+    return outcome.data;
+  }
+
   return new StateGraph(PipelineState)
     .addNode('designStage', async (state) =>
-      stage(options, 'design', async () => ({
-        design: requireAnswer(
-          await requestJson({
-            model: options.model,
-            messages: designPrompt(state.topic),
-            schema: DesignSchema,
-            keys: Object.keys(DesignSchema.shape),
-            emptyError: EMPTY_JSON_ERROR,
-            verify: async (value) => [
-              ...(await validateDiagram(value.mermaid, value)),
-              ...validateDdl(value.ddl, value),
-            ],
-            corrective: correctiveReply,
-            attempts: STAGE_ATTEMPTS,
-          }),
+      stage(options, 'design', async () => {
+        const answer = await ask(
           'design',
-        ),
-      })),
+          designPrompt(state.topic),
+          DesignAnswerSchema,
+          (value) => validateDdl(value.ddl, value),
+        );
+        return { design: { ...answer, mermaid: await renderDiagram(answer) } };
+      }),
     )
     .addNode('examplesStage', async (state) =>
       stage(options, 'examples', async () => {
         const design = requireValue(state.design, 'design');
         return {
-          examples: requireAnswer(
-            await requestJson({
-              model: options.model,
-              messages: examplesPrompt(state.topic, design),
-              schema: ExamplesSchema,
-              keys: Object.keys(ExamplesSchema.shape),
-              emptyError: EMPTY_JSON_ERROR,
-              verify: (examples) => verifyExamples(examples, design),
-              corrective: correctiveReply,
-              attempts: STAGE_ATTEMPTS,
-            }),
+          examples: await ask(
             'examples',
+            examplesPrompt(state.topic, design),
+            ExamplesSchema,
+            (examples) => verifyExamples(examples, design),
           ),
         };
       }),
@@ -134,18 +132,11 @@ export function buildPipeline(options: PipelineOptions) {
       stage(options, 'judge', async () => {
         const design = requireValue(state.design, 'design');
         const examples = requireValue(state.examples, 'examples');
-        requireAnswer(
-          await requestJson({
-            model: options.model,
-            messages: judgePrompt(state.topic, design, examples),
-            schema: JudgeSchema,
-            keys: Object.keys(JudgeSchema.shape),
-            emptyError: EMPTY_JSON_ERROR,
-            verify: judgeViolations,
-            corrective: correctiveReply,
-            attempts: STAGE_ATTEMPTS,
-          }),
+        await ask(
           'judge',
+          judgePrompt(state.topic, design, examples),
+          JudgeSchema,
+          judgeViolations,
         );
         return {};
       }),

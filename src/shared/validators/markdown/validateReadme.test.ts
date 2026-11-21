@@ -28,7 +28,7 @@ describe('README validation', () => {
     expect(validateReadme(readme, availablePaths, diagram)).toEqual([]);
     expect(
       validateReadme(
-        readme.replace('TEXT name', 'TEXT label'),
+        readme.replace('TEXT `name`', 'TEXT `label`'),
         availablePaths,
         diagram,
       ),

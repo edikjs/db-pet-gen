@@ -1,5 +1,5 @@
 import { dataModel, design, operations, seedData } from '../../test-support';
-import { DesignSchema } from './pipeline.schema';
+import { DesignAnswerSchema } from './pipeline.schema';
 import type { DataModel } from './database.schema';
 import {
   DataModelSchema,
@@ -96,7 +96,7 @@ describe('database schemas', () => {
   ])('rejects %s in the actual design stage schema', (_label, mutate) => {
     const candidate = structuredClone(design);
     mutate(candidate);
-    expect(DesignSchema.safeParse(candidate).success).toBe(false);
+    expect(DesignAnswerSchema.safeParse(candidate).success).toBe(false);
   });
 
   it.each([1, 6])('rejects %i seed rows in a table', (count) => {

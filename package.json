@@ -40,7 +40,6 @@
     "ora": "^10.0.0",
     "remark-parse": "^11.0.0",
     "reserved-identifiers": "^1.2.0",
-    "string-collapse-white-space": "^11.2.7",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.2.0",
     "zod": "^4.6.7"
