@@ -80,10 +80,7 @@ describe('a topic-only generation run', () => {
     expect(events.map((event) => event.kind)).toEqual(
       expect.arrayContaining(['run_started', 'stage_started', 'run_completed']),
     );
-    expect(qa).toEqual({
-      verdict: 'pass',
-      checks: { sql: 'passed', mermaid: 'passed', markdown: 'passed' },
-    });
+    expect(qa).toEqual({ verdict: 'pass' });
     expect(model.calls).toEqual(['design', 'examples', 'judge']);
   });
 

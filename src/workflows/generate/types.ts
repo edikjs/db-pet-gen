@@ -3,7 +3,7 @@ import type { GenerationModel } from '../../llm';
 import type { PipelineResult } from './graph';
 
 export interface PipelineEvent {
-  kind: 'stage_started' | 'stage_finished' | 'stage_failed' | 'model_retry';
+  kind: 'stage_started' | 'stage_finished' | 'stage_failed';
   stage: string;
   detail?: string;
 }

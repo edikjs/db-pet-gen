@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 import ora from 'ora';
 import { loadConfig } from '../config';
+import { redact } from '../shared';
 import {
   resumeRun,
   runGenerate,
@@ -17,7 +18,7 @@ function formatError(error: unknown): string {
     current = current.cause;
   }
   const text = messages.join('\nCaused by: ') || String(error);
-  return text.replaceAll(process.env.LLM_API_KEY || '\0', '[REDACTED]');
+  return redact(text, process.env.LLM_API_KEY);
 }
 
 export function buildProgram(dependencies: CliDependencies = {}): Command {

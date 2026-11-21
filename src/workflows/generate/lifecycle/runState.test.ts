@@ -35,13 +35,14 @@ it('redacts credentials from stage logs and writes the manifest atomically', asy
     const recorder = new RunRecorder(root, manifest, 'secret-token');
     await recorder.progress({ kind: 'stage_started', stage: 'design' });
     await recorder.progress({
-      kind: 'model_retry',
+      kind: 'stage_finished',
       stage: 'design',
-      detail: 'secret-token refused',
+      detail: 'secret-token refused sk-another-secret1234567890',
     });
     await recorder.finish('failed', 'secret-token failed');
     const log = await readFile(join(root, 'events.jsonl'), 'utf8');
     expect(log).not.toContain('secret-token');
+    expect(log).not.toContain('sk-another-secret1234567890');
     expect(
       ManifestSchema.parse(
         JSON.parse(await readFile(join(root, 'run.json'), 'utf8')),
@@ -50,7 +51,7 @@ it('redacts credentials from stage logs and writes the manifest atomically', asy
       status: 'failed',
       stage: 'design',
       error: '[REDACTED] failed',
-      stages: { design: { attempts: 1, status: 'running' } },
+      stages: { design: { attempts: 1, status: 'completed' } },
     });
   } finally {
     await rm(root, { recursive: true, force: true });

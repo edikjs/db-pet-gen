@@ -81,7 +81,6 @@ async function execute(
             topic: recorder.manifest.topic,
             design: null,
             examples: null,
-            output: null,
           },
       config,
     );

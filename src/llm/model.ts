@@ -33,7 +33,10 @@ import { errorMessage, reportDiagnostic } from '../shared';
  * The default handler runs first: a 401 or an exhausted quota still stops
  * immediately instead of being retried.
  */
-function withRetryBackoff(model: BaseChatModel): BaseChatModel {
+function withRetryBackoff(
+  model: BaseChatModel,
+  apiKey?: string,
+): BaseChatModel {
   // AsyncCaller keeps the handler protected, but replacing it on the instance
   // is the only way to keep its retryability decision and change the delay.
   const caller = model.caller as unknown as {
@@ -41,7 +44,7 @@ function withRetryBackoff(model: BaseChatModel): BaseChatModel {
   };
   const defaultHandler = caller.onFailedAttempt;
   caller.onFailedAttempt = (error: unknown) => {
-    reportDiagnostic('Model call failed', errorMessage(error));
+    reportDiagnostic('Model call failed', errorMessage(error), apiKey);
     const outcome = defaultHandler?.(error);
     if (isObject(error)) {
       delete (error as { retryAfterMs?: number }).retryAfterMs;
@@ -70,5 +73,6 @@ export function createChatModel(config: ChatModelConfig): BaseChatModel {
         : {}),
       configuration: { baseURL: config.baseUrl },
     }),
+    config.apiKey,
   );
 }

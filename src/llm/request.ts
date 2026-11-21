@@ -23,6 +23,12 @@ import type { JsonOutcome, JsonRequest } from './types';
  * how a rejection is explained.
  */
 
+/** The first JSON object of the text, unwrapped from an envelope if needed. */
+function readValue(text: string, keys: readonly string[] | undefined): unknown {
+  const candidate = parseJsonObject(text);
+  return candidate && keys ? unwrapEnvelope(candidate, keys) : candidate;
+}
+
 /**
  * Asks the model until the answer is usable or the attempts run out.
  *
@@ -38,12 +44,9 @@ export async function requestJson<T>(
   request: JsonRequest<T>,
 ): Promise<JsonOutcome<T>> {
   const messages = [...request.messages];
-  const prepare = request.prepare ?? defaultPrepare(request.keys);
-  let error = 'the model returned no valid JSON';
-  let best: T | null = null;
-  let bestEffort = false;
+  let error = request.emptyError ?? 'the model returned no valid JSON';
 
-  for (let attempt = 0; attempt < request.attempts; attempt += 1) {
+  for (let remaining = request.attempts; remaining > 0; remaining -= 1) {
     let text: string;
     let response: BaseMessage;
     try {
@@ -62,31 +65,19 @@ export async function requestJson<T>(
       continue;
     }
 
-    const value = prepare(text, response);
+    const value = readValue(text, request.keys);
     const parsed = request.schema.safeParse(value);
     if (!parsed.success) {
       error =
         value === null && request.emptyError
-          ? resolveEmptyError(request.emptyError, text)
+          ? request.emptyError
           : zodIssues(parsed.error);
     } else {
-      const violations =
-        (await request.verify?.(parsed.data, {
-          attempt,
-          attempts: request.attempts,
-          last: attempt === request.attempts - 1,
-        })) ?? [];
+      const violations = (await request.verify?.(parsed.data)) ?? [];
       if (violations.length === 0) {
-        const soft = request.soft?.(parsed.data) ?? [];
-        if (soft.length === 0) {
-          return { ok: true, data: parsed.data, bestEffort: false };
-        }
-        best = parsed.data;
-        bestEffort = true;
-        error = soft.join('; ');
-      } else {
-        error = violations.join('; ');
+        return { ok: true, data: parsed.data };
       }
+      error = violations.join('; ');
     }
 
     messages.push(
@@ -95,31 +86,7 @@ export async function requestJson<T>(
     );
   }
 
-  if (best !== null) {
-    return { ok: true, data: best, bestEffort };
-  }
   return { ok: false, error };
-}
-
-/** The default reader: the first JSON object of the text, unwrapped. */
-function defaultPrepare(
-  keys: readonly string[] | undefined,
-): (text: string) => unknown {
-  return (text) => {
-    const candidate = parseJsonObject(text);
-    if (!candidate) {
-      return null;
-    }
-    return keys ? unwrapEnvelope(candidate, keys) : candidate;
-  };
-}
-
-/** The error reported for an answer that held no JSON. */
-function resolveEmptyError(
-  emptyError: string | ((text: string) => string),
-  text: string,
-): string {
-  return typeof emptyError === 'function' ? emptyError(text) : emptyError;
 }
 
 /** The zod issues of an answer, one per line. */

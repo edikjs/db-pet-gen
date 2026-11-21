@@ -1,10 +1,3 @@
-export * from './answer';
-export * from './model';
-export * from './rateLimit';
-export * from './request';
-export type {
-  GenerationModel,
-  JsonAttempt,
-  JsonOutcome,
-  JsonRequest,
-} from './types';
+export { createChatModel } from './model';
+export { requestJson } from './request';
+export type { GenerationModel, JsonOutcome } from './types';

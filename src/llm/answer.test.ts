@@ -1,10 +1,5 @@
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
-import {
-  messageText,
-  parseJsonObject,
-  parseJsonValue,
-  unwrapEnvelope,
-} from './answer';
+import { messageText, parseJsonObject, unwrapEnvelope } from './answer';
 
 describe('messageText', () => {
   it('reads the text of an answer', () => {
@@ -57,24 +52,6 @@ describe('unwrapEnvelope', () => {
     };
 
     expect(unwrapEnvelope(envelope, ['a'])).toEqual({ a: 1 });
-  });
-});
-
-describe('parseJsonValue', () => {
-  it('reads the object out of an answer', () => {
-    expect(parseJsonValue('answer: {"a": 1}')).toEqual({ a: 1 });
-  });
-
-  it('reads the array out of an answer', () => {
-    expect(parseJsonValue('answer: [1, 2]')).toEqual([1, 2]);
-  });
-
-  it('reads nothing out of an answer without JSON', () => {
-    expect(parseJsonValue('no json here')).toBeNull();
-  });
-
-  it('reads nothing out of a broken value', () => {
-    expect(parseJsonValue('{"a": ')).toBeNull();
   });
 });
 

@@ -6,7 +6,7 @@ import { buildPipeline, GRAPH_VERSION } from './graph';
 import type { PipelineEvent } from './types';
 
 describe('generation graph', () => {
-  it('wires the five stages in order', () => {
+  it('wires the four stages in order', () => {
     const graph = buildPipeline({
       model: new FixtureModel(),
       workspace: '/tmp',
@@ -15,18 +15,16 @@ describe('generation graph', () => {
       'designStage',
       'examplesStage',
       'judgeStage',
-      'validateStage',
       'publishStage',
     ]);
     expect([...graph.edges]).toEqual([
       ['__start__', 'designStage'],
       ['designStage', 'examplesStage'],
       ['examplesStage', 'judgeStage'],
-      ['judgeStage', 'validateStage'],
-      ['validateStage', 'publishStage'],
+      ['judgeStage', 'publishStage'],
       ['publishStage', '__end__'],
     ]);
-    expect(GRAPH_VERSION).toBe(7);
+    expect(GRAPH_VERSION).toBe(8);
   });
 
   it('asks the model for each generation stage and reports every stage', async () => {
@@ -45,19 +43,15 @@ describe('generation graph', () => {
         topic: 'Pet records',
         design: null,
         examples: null,
-        output: null,
       });
       expect(model.calls).toEqual(['design', 'examples', 'judge']);
       expect(
         events
           .filter((event) => event.kind === 'stage_started')
           .map((event) => event.stage),
-      ).toEqual(['design', 'examples', 'judge', 'validate', 'publish']);
-      expect(state.output?.checks).toEqual({
-        sql: 'passed',
-        mermaid: 'passed',
-        markdown: 'passed',
-      });
+      ).toEqual(['design', 'examples', 'judge', 'publish']);
+      expect(state.design?.tables).toHaveLength(2);
+      expect(state.examples?.readme).toContain('Pet records');
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

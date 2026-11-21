@@ -68,22 +68,3 @@ export function unwrapEnvelope(
   }
   return value;
 }
-
-/** The JSON value of an answer — an object or an array — or null. */
-export function parseJsonValue(text: string): unknown {
-  const start = [text.indexOf('{'), text.indexOf('[')]
-    .filter((index) => index >= 0)
-    .sort((left, right) => left - right)[0];
-  if (start === undefined) {
-    return null;
-  }
-  const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
-  if (end <= start) {
-    return null;
-  }
-  try {
-    return JSON.parse(text.slice(start, end + 1)) as unknown;
-  } catch {
-    return null;
-  }
-}

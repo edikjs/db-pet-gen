@@ -15,7 +15,6 @@ const result: RunResult = {
     topic: 'Pet records',
     design: null,
     examples: null,
-    output: null,
   },
 };
 
@@ -79,5 +78,20 @@ describe('topic-only CLI', () => {
       }),
     ).toBe(1);
     expect(errors.join('\n')).toContain('provider unavailable');
+  });
+
+  it('redacts key-shaped secrets from failures', async () => {
+    const errors: string[] = [];
+    expect(
+      await main(['node', 'cli', 'resume', 'a-run'], {
+        load: () => config,
+        resume: async () => {
+          throw new Error('request rejected with sk-private1234567890abcdef');
+        },
+        error: (line) => errors.push(line),
+      }),
+    ).toBe(1);
+    expect(errors.join('\n')).toContain('[REDACTED]');
+    expect(errors.join('\n')).not.toContain('sk-private1234567890abcdef');
   });
 });

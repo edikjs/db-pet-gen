@@ -21,8 +21,9 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 - `src/shared/schemas/` — shared types and schemas.
 - `src/shared/validators/` — SQL, Mermaid and Markdown validation.
 - `src/shared/utils/` — shared error helpers.
-- `src/workflows/generate/` — LangGraph stages: design, examples, judge, validate,
-  publish; run entry and resume.
+- `src/workflows/generate/` — LangGraph stages: design, examples, judge and
+  publish; run entry and resume. Deterministic checks live in each model stage's
+  verifier; `prompts.ts` and `artifacts.ts` hold the instructions and output paths.
 - `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
   SQLite checkpoints.
 - `src/io/workspace.ts` — run paths. Validation lives in `src/shared/validators/`:

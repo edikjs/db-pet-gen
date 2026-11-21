@@ -61,8 +61,6 @@ examples: stage started
 examples: stage finished
 judge: stage started
 judge: stage finished
-validate: stage started
-validate: stage finished
 publish: stage started
 publish: stage finished
 
@@ -87,7 +85,7 @@ artifacts/runs/<run-id>/
   run.json                     Status, model identity, current stage
   events.jsonl                 Timestamped stage event log
   checkpoints.db               LangGraph SQLite checkpoints for resume
-  qa-report.json               SQL, Mermaid and Markdown validation results
+  qa-report.json               Pass/fail report
 ```
 
 The data and artifact examples below use the small **Pet records** example from
@@ -168,8 +166,8 @@ success; failures print the run id, stage, error and the exact resume command.
 
 ## Pipeline
 
-Each run compiles the same five-stage LangGraph pipeline. The first three stages
-ask the model for Zod-validated JSON (two attempts each); the last two are
+Each run compiles the same four-stage LangGraph pipeline. The first three stages
+ask the model for Zod-validated JSON (two attempts each); `publish` is
 deterministic code:
 
 ```mermaid
@@ -177,23 +175,19 @@ flowchart LR
     T(["Topic"]) --> D["design<br/>LLM: plan, tables, ER and DDL"]
     D --> X["examples<br/>LLM: seed SQL, operations and README"]
     X --> J["judge<br/>LLM: compare artifacts with design"]
-    J --> V["validate<br/>recheck operations and Markdown"]
-    V --> Q{"All checks passed?"}
-    Q -- pass --> P["publish<br/>write artifacts and qa-report"]
-    Q -- fail --> F["Failed run<br/>resume from checkpoint"]
+    J --> P["publish<br/>write artifacts and qa-report"]
     P --> Z(["Run complete"])
-    D -. on error .-> F
+    D -. on error .-> F["Failed run<br/>resume from checkpoint"]
     X -. on error .-> F
     J -. on error .-> F
 ```
 
-| Stage      | Kind              | What it produces and checks                                                                  |
-| ---------- | ----------------- | -------------------------------------------------------------------------------------------- |
-| `design`   | model, 2 attempts | `Design` JSON; Mermaid is parsed against the design and DDL is parsed as PostgreSQL          |
-| `examples` | model, 2 attempts | `Examples` JSON; seed SQL is parsed as INSERTs, README structure and links are checked       |
-| `judge`    | model, 2 attempts | `Judge` JSON; must report `matches: true` with no problems, or the answer is corrected       |
-| `validate` | deterministic     | Re-parses operations against the design and rechecks the README; builds the in-memory output |
-| `publish`  | deterministic     | Writes the four deliverables plus `qa-report.json`                                           |
+| Stage      | Kind              | What it produces and checks                                                                     |
+| ---------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| `design`   | model, 2 attempts | `Design` JSON; Mermaid is parsed against the design and DDL is parsed as PostgreSQL             |
+| `examples` | model, 2 attempts | `Examples` JSON; seed SQL, operations, README structure and links are checked before acceptance |
+| `judge`    | model, 2 attempts | `Judge` JSON; must report `matches: true` with no problems, or the answer is corrected          |
+| `publish`  | deterministic     | Writes the four deliverables from the checked data plus a passing `qa-report.json`              |
 
 An unusable answer is sent back to the model once with the exact rejection and a
 request to return matching JSON. A provider rate limit is not retried at this
@@ -449,12 +443,7 @@ A successful `qa-report.json`:
 
 ```json
 {
-  "verdict": "pass",
-  "checks": {
-    "sql": "passed",
-    "mermaid": "passed",
-    "markdown": "passed"
-  }
+  "verdict": "pass"
 }
 ```
 
@@ -464,7 +453,7 @@ resumption count, per-stage attempts and timings, and the model identity
 
 ```json
 {
-  "version": 7,
+  "version": 8,
   "runId": "20261121-092452-public-library-database-018b02",
   "topic": "Public library database",
   "status": "completed",
@@ -564,7 +553,9 @@ src/
     utils/                  Shared error helpers
   workflows/generate/
     lifecycle/              Run manifest, event log and checkpoints
+    artifacts.ts            Generated paths and their source data
     graph.ts                Generation stages
+    prompts.ts              Stage instructions
     run.ts                  First run and resume
   io/
     workspace.ts            Per-run paths

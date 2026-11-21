@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { appendFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { redact as redactText } from '../../../shared';
 import type { PipelineEvent } from '../types';
 
 export const ManifestSchema = z.object({
@@ -52,7 +53,7 @@ export class RunRecorder {
   ) {}
 
   redact(detail: string): string {
-    return detail.replaceAll(this.apiKey || '\0', '[REDACTED]').slice(0, 2000);
+    return redactText(detail, this.apiKey);
   }
 
   async event(kind: string, detail?: string): Promise<void> {
