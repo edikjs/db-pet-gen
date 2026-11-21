@@ -19,17 +19,19 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 - `src/config/` — validated model/run/tracing config from `.env`.
 - `src/llm/` — OpenAI-compatible chat model and structured JSON retries.
 - `src/shared/schemas/` — shared types and schemas.
+- `src/shared/validators/` — SQL, Mermaid and Markdown validation.
 - `src/shared/utils/` — shared error helpers.
-- `src/workflows/generate/` — LangGraph stages: design, examples, render,
+- `src/workflows/generate/` — LangGraph stages: design, examples, judge, validate,
   publish; run entry and resume.
 - `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
   SQLite checkpoints.
-- `src/io/workspace.ts` and `src/io/renderers/` — run paths, Kysely-compiled SQL,
-  `node-sql-parser` validation of model-supplied operations, and
-  `mdast`/`remark`-backed Markdown/ER renderers.
+- `src/io/workspace.ts` — run paths. Validation lives in `src/shared/validators/`:
+  `node-sql-parser` for model-written DDL, seed and operations, official-Mermaid
+  for ER source, and `remark` for Markdown. A separate model stage reviews all
+  artifacts against the checked data.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
 - `src/adapters/observability/` — optional Phoenix tracing.
-- `src/test-support/` — network-free fake model and valid fixture.
+- `src/test-support/fixtures/` — network-free fake model and valid fixture.
 
 Before implementing a common concern (parsing, validation, collections,
 redaction, and similar), check npm first. Prefer a popular, well-maintained
@@ -38,14 +40,17 @@ library exists or the dependency would be disproportionate. Avoid libraries
 whose last release is more than two years old unless they are still widely
 used today.
 
-Model responses provide **structured data**. Do not let model text write
-arbitrary file contents, paths, or Markdown links. SQL, Markdown and diagrams
-render from checked data. Model-supplied operation statements are parsed and
-checked against the design but never written to disk as generated files; do not
-claim they were executed against PostgreSQL.
+Model responses provide **structured data**. SQL, ER source and Markdown are
+model-written strings checked before they are written. Operation statements, DDL
+and seed SQL are parsed with `node-sql-parser`; Markdown structure, raw HTML and
+links are checked with `remark`; ER source is parsed with the official Mermaid
+parser. A separate model review compares all generated artifacts with the
+checked design and seed rows. Nothing is executed — do not claim operations were
+run against PostgreSQL.
 
-- Render Markdown and Mermaid from checked data with libraries, not by
-  concatenating ad-hoc strings.
+- The SQL and Markdown validators only check syntax, structure and allowed
+  links; design comparison belongs to the model review stage. Model-written SQL,
+  Mermaid and Markdown must pass their checks before they are written.
 - Antipattern: pass-through wrappers. Do not create a one-line function that
   only renames a library call (for example `camelName` around `camelCase`).
   Call the library directly and keep functions only when they encode a real
@@ -56,7 +61,6 @@ claim they were executed against PostgreSQL.
   functions with one responsibility.
 - Prefer typed structures (a Markdown AST, a layout config) and functional
   composition (`.map`, `.filter`, `.flatMap`) in small focused modules.
-- `src/io/renderers/markdown/markdownRenderer.ts` is only a thin entry point.
 
 Keep named types and interfaces in a `types.ts` file in their module folder.
 Types derived from a Zod schema (`z.infer<typeof ...>`, `typeof SomeSchema.State`)
@@ -71,6 +75,14 @@ npm run lint:check && npm run format:check && npm test`. Tests are colocated
 (`foo.test.ts`).
 Prettier uses single quotes (`.prettierrc.json`); Jest transforms ESM-only
 dependencies through `ts-jest`.
+
+## Commits
+
+Use Conventional Commits for every commit:
+`<type>(<optional scope>): <lowercase imperative summary>`. Types in use here
+are `feat`, `fix`, `refactor`, `chore`, `docs`, and `test`; use `chore(deps):`
+for dependency changes. Keep the summary short, and add a body explaining why
+when the change is not obvious. Never use a bare sentence as the subject.
 
 `.githooks/` is wired by `npm run prepare` (automatic on `npm install`).
 Pre-commit runs lint and formatting checks; pre-push also runs tests.

@@ -1,5 +1,5 @@
 import { Parser } from 'node-sql-parser';
-import type { DataModel, Operation, Operations } from '../../../shared';
+import type { DataModel, Operation, Operations } from '../../schemas';
 
 const parser = new Parser();
 const DIALECT = { database: 'Postgresql' } as const;
@@ -85,7 +85,7 @@ function validateOperation(operation: Operation, model: DataModel): void {
   );
 }
 
-/** Fails the render stage when an example operation is not trustworthy SQL. */
+/** Fails the validation stage when an example operation is not trustworthy SQL. */
 export function validateOperations(
   operations: Operations,
   model: DataModel,

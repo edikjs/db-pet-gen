@@ -71,11 +71,11 @@ export async function requestJson<T>(
           : zodIssues(parsed.error);
     } else {
       const violations =
-        request.verify?.(parsed.data, {
+        (await request.verify?.(parsed.data, {
           attempt,
           attempts: request.attempts,
           last: attempt === request.attempts - 1,
-        }) ?? [];
+        })) ?? [];
       if (violations.length === 0) {
         const soft = request.soft?.(parsed.data) ?? [];
         if (soft.length === 0) {

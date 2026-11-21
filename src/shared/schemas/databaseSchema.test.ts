@@ -1,4 +1,4 @@
-import { dataModel, operations, seedData } from '../../test-support/fixture';
+import { dataModel, operations, seedData } from '../../test-support';
 import {
   DataModelSchema,
   OperationsSchema,

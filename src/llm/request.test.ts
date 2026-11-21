@@ -199,6 +199,23 @@ describe('requestJson', () => {
     ]);
   });
 
+  it('awaits asynchronous domain checks before accepting an answer', async () => {
+    const model = createModel(['{"value": 1}', '{"value": 2}']);
+
+    const outcome = await requestJson(
+      request(model, {
+        verify: async (answer) =>
+          answer.value === 1 ? ['the value is too small'] : [],
+      }),
+    );
+
+    expect(outcome).toEqual({
+      ok: true,
+      data: { value: 2 },
+      bestEffort: false,
+    });
+  });
+
   it('passes the whole answer message to the reader', async () => {
     const model = createModel(['{"value": 1}']);
     let metadata: unknown = null;

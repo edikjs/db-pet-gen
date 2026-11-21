@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import { loadConfig } from '../../config';
 import { resumeRun, runGenerate } from './run';
-import { FixtureModel } from '../../test-support/fixture';
+import { FixtureModel } from '../../test-support';
 
 describe('a topic-only generation run', () => {
   let root: string;
@@ -46,6 +46,14 @@ describe('a topic-only generation run', () => {
       join(run.workspace, 'assets/ddl/schema.sql'),
       'utf8',
     );
+    const seed = await readFile(
+      join(run.workspace, 'assets/seed/seed.sql'),
+      'utf8',
+    );
+    const er = await readFile(
+      join(run.workspace, 'assets/diagrams/er.mmd'),
+      'utf8',
+    );
     const events = (await readFile(join(run.workspace, 'events.jsonl'), 'utf8'))
       .trim()
       .split('\n')
@@ -58,6 +66,8 @@ describe('a topic-only generation run', () => {
     ) as Record<string, unknown>;
     expect(readme).toContain('Pet records');
     expect(ddl).toContain('create table "pets"');
+    expect(seed).toContain('insert into "owners" ("id", "name")');
+    expect(er).toContain('owners ||--o{ pets : owner_id');
     expect(await readdir(join(run.workspace, 'assets'))).toEqual([
       'ddl',
       'diagrams',
@@ -74,7 +84,7 @@ describe('a topic-only generation run', () => {
       verdict: 'pass',
       checks: { sql: 'passed', mermaid: 'passed', markdown: 'passed' },
     });
-    expect(model.calls).toEqual(['design', 'examples']);
+    expect(model.calls).toEqual(['design', 'examples', 'judge']);
   });
 
   it('fails the run when the model returns an unusable design', async () => {
@@ -112,7 +122,7 @@ describe('a topic-only generation run', () => {
     const model = new FixtureModel();
     const result = await resumeRun({ runId, config, model });
     expect(result.readmePath).toContain('README.md');
-    expect(model.calls).toEqual(['examples']);
+    expect(model.calls).toEqual(['examples', 'judge']);
     const manifest = JSON.parse(
       await readFile(join(result.workspace, 'run.json'), 'utf8'),
     ) as { status: string; resumptions: number };

@@ -33,8 +33,8 @@ export interface JsonRequest<T> {
   keys?: readonly string[];
   /** The error reported when the text holds no JSON at all. */
   emptyError?: string | ((text: string) => string);
-  /** Domain checks. Return `[]` to accept the answer. */
-  verify?: (value: T, attempt: JsonAttempt) => string[];
+  /** Domain checks. Return `[]` to accept the answer; may check asynchronously. */
+  verify?: (value: T, attempt: JsonAttempt) => string[] | Promise<string[]>;
   /** Soft checks: a failed answer is kept as best effort while attempts remain. */
   soft?: (value: T) => string[];
   /** The feedback sent after a rejected answer. */

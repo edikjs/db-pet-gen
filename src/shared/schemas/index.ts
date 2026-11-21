@@ -1,6 +1,6 @@
 export { ProjectPlanSchema, type ProjectPlan } from './planSchema';
-export { DesignSchema, ExamplesSchema } from './pipelineSchema';
-export type { Design, Examples } from './pipelineSchema';
+export { DesignSchema, ExamplesSchema, JudgeSchema } from './pipelineSchema';
+export type { Design, Examples, Judge } from './pipelineSchema';
 export {
   DataModelSchema,
   OperationsSchema,

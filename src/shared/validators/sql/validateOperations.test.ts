@@ -1,4 +1,4 @@
-import { dataModel, operations } from '../../../test-support/fixture';
+import { dataModel, operations } from '../../../test-support';
 import { validateOperations } from './validateOperations';
 
 describe('operation validation', () => {

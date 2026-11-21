@@ -44,20 +44,23 @@ and start a new run to switch models.
 
 ## Pipeline
 
-Every run walks the same four-stage LangGraph pipeline. The first two stages ask
-the model for Zod-validated JSON; the last two are deterministic code:
+Every run walks the same five-stage LangGraph pipeline. The first two stages ask
+the model for Zod-validated JSON, the third asks it to review the generated SQL,
+and the last two are deterministic code:
 
 ```mermaid
 flowchart LR
-    T(["Topic"]) --> D["design<br/>LLM: plan and tables"]
-    D --> X["examples<br/>LLM: seed and operations"]
-    X --> R["render<br/>SQL, ER and README"]
-    R --> Q{"SQL, Mermaid and Markdown QA"}
+    T(["Topic"]) --> D["design<br/>LLM: plan, tables, ER and DDL"]
+    D --> X["examples<br/>LLM: seed SQL, operations and README"]
+    X --> J["judge<br/>LLM: compare artifacts with design"]
+    J --> V["validate<br/>model-written Markdown and SQL"]
+    V --> Q{"SQL, Mermaid and Markdown QA"}
     Q -- pass --> P["publish<br/>write artifacts and qa-report"]
     Q -- fail --> F["Failed run<br/>resume from checkpoint"]
     P --> Z(["Run complete"])
     D -. on error .-> F
     X -. on error .-> F
+    J -. on error .-> F
 ```
 
 A failed check stops the run before `publish`; completed stages are restored from
@@ -75,29 +78,30 @@ artifacts/runs/<run-id>/
   run.json                     Status, model identity, current stage
   events.jsonl                 Timestamped stage event log
   checkpoints.db              LangGraph SQLite checkpoints for resume
-  qa-report.json              Mermaid and Markdown validation results
+  qa-report.json              SQL, Mermaid and Markdown validation results
 ```
 
 The generated `README.md` explains what was built, assumptions and features,
 schema and relationship details, setup with `psql`, seed data, and example
 operations. Mermaid is embedded inline; a textual relationship description is
-included for viewers without Mermaid support. SQL scripts are compiled with
-Kysely, Markdown is serialized from `mdast` nodes, and Mermaid ER source is
-printed from a typed AST with `@jarenjs/mermaid` — all from checked data. The
-operation statements are model-supplied examples: they are parsed with
-`node-sql-parser` and checked against the declared tables and parameters, but
-they are not executed. SQL targets portable PostgreSQL syntax; no PostgreSQL
-instance is started or claimed as tested.
+included for viewers without Mermaid support. SQL, ER source and Markdown are
+written by the model. The DDL and INSERTs are parsed with `node-sql-parser`; the
+ER source is parsed with the official Mermaid parser; and Markdown structure,
+raw HTML and links are checked with `remark`. A model review compares all three
+with the checked design and seed rows. The operation statements are
+model-supplied examples parsed with `node-sql-parser` and checked against their
+declared tables and parameters. None of it is executed. SQL targets portable
+PostgreSQL syntax; no PostgreSQL instance is started or claimed as tested.
 
 ## Failures and resume
 
 Each model stage proposes structured data; Zod rejects malformed answers and
-gives the model corrective feedback. Final output is assembled in code;
-operation statements are parsed as SQL, Mermaid source is validated in-process,
-and Markdown links and required sections are checked with `remark`. Files are
-written only after all three checks pass. When a stage fails, the run id, stage,
-error and resume command are printed; `run.json` and `events.jsonl` preserve the
-details:
+violations of the SQL, Mermaid and Markdown checks give the model corrective
+feedback. Mermaid source is parsed with the official `mermaid` package; DDL and
+seed SQL are parsed with `node-sql-parser`; Markdown links, raw HTML and required
+sections are checked with `remark`; and the model review compares every generated
+artifact with the checked data. Files are written only after all checks pass. When a stage fails, the run id, stage, error and resume command
+are printed; `run.json` and `events.jsonl` preserve the details:
 
 ```sh
 npm start -- resume <run-id>
@@ -115,6 +119,9 @@ src/
   llm/                      Provider client, rate limits and validated JSON requests
   shared/
     schemas/                Shared types and schemas
+    validators/
+      sql/                  DDL, seed and operation validation
+      markdown/             README and ER diagram validation
     utils/                  Shared error helpers
   workflows/generate/
     lifecycle/              Run manifest, event log and checkpoints
@@ -122,11 +129,9 @@ src/
     run.ts                  First run and resume
   io/
     workspace.ts            Per-run paths
-    renderers/
-      sql/                  Database scripts and operation validation
-      markdown/             Main README and ER diagram
   adapters/observability/   Optional Phoenix tracing
-  test-support/             Offline fixtures
+  test-support/
+    fixtures/               Offline fixture and fake model
 ```
 
 Each module has an `index.ts` barrel and colocated tests.
@@ -145,6 +150,9 @@ npm run phoenix:down
 ```
 
 Phoenix uses <http://localhost:6006>; the Docker service is optional.
+`@opentelemetry/api` is pinned to `1.9.1` at the root: the OpenInference v2
+packages require `<1.10.0`, while Phoenix v3 and its OpenTelemetry v3 packages
+require `>=1.10.0` and receive a nested copy.
 
 ```sh
 npm run build
