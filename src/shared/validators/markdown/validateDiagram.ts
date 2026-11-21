@@ -1,4 +1,5 @@
 import mermaid from 'mermaid';
+import { isEqual } from 'es-toolkit';
 import { collapse } from 'string-collapse-white-space';
 import type { DataColumn, DataModel, DataTable } from '../../schemas';
 import { errorMessage } from '../../utils';
@@ -12,14 +13,6 @@ const FORBIDDEN_STATEMENTS = new Set([
   'linkstyle',
   'style',
 ]);
-const KEY_MARKERS: readonly {
-  readonly token: string;
-  readonly applies: (column: DataColumn) => boolean;
-}[] = [
-  { token: 'PK', applies: (column) => column.primaryKey },
-  { token: 'FK', applies: (column) => column.references !== null },
-  { token: 'UK', applies: (column) => column.unique },
-];
 
 /** The parts of Mermaid's ER parser database used for the design cross-check. */
 interface ErAttribute {
@@ -55,21 +48,24 @@ function forbiddenStatements(source: string): string[] {
   const lines = flatLines(source);
   if (lines[0] !== 'erDiagram')
     issues.push('The diagram must start with erDiagram.');
-  for (const line of lines) {
-    const head = line.split(' ')[0]?.toLowerCase() ?? '';
-    if (head.startsWith('%%') || FORBIDDEN_STATEMENTS.has(head))
-      issues.push(`Forbidden Mermaid statement: ${line}`);
-  }
+  for (const line of lines.filter(isDirective))
+    issues.push(`Forbidden Mermaid statement: ${line}`);
   if (source.includes('<') || source.includes('>'))
     issues.push('Mermaid markup is not allowed.');
   return issues;
 }
 
-/** The markers a column should carry in an ER diagram, in a stable order. */
+function isDirective(line: string): boolean {
+  const [keyword] = line.toLowerCase().split(' ');
+  return keyword.startsWith('%%') || FORBIDDEN_STATEMENTS.has(keyword);
+}
+
 function keyMarkers(column: DataColumn): readonly string[] {
-  return KEY_MARKERS.filter((key) => key.applies(column))
-    .map((key) => key.token)
-    .sort();
+  const markers = [];
+  if (column.primaryKey) markers.push('PK');
+  if (column.references) markers.push('FK');
+  if (column.unique) markers.push('UK');
+  return markers;
 }
 
 /** A comparable attribute identity, independent of key-marker order. */
@@ -93,28 +89,19 @@ function expectedAttributes(table: DataTable): string[] {
 
 /** Entity names and attributes must be exactly the design's tables and columns. */
 function checkEntities(db: ErDatabase, design: DataModel): readonly string[] {
-  const entities = [...db.entities];
-  const expected = design.tables
-    .map((table) => table.name)
-    .sort()
-    .join('|');
-  const actual = entities
-    .map(([name]) => name)
-    .sort()
-    .join('|');
-  if (actual !== expected)
+  const expected = design.tables.map((table) => table.name).sort();
+  const actual = [...db.entities.keys()].sort();
+  if (!isEqual(actual, expected))
     return ['Diagram entities must match the design tables exactly.'];
 
-  const entitiesByName = new Map(entities);
   return design.tables.flatMap((table) => {
-    const wanted = expectedAttributes(table).join('|');
-    const found = (entitiesByName.get(table.name)?.attributes ?? [])
+    const wanted = expectedAttributes(table);
+    const found = (db.entities.get(table.name)?.attributes ?? [])
       .map((attribute) =>
         attributeIdentity(attribute.type, attribute.name, attribute.keys),
       )
-      .sort()
-      .join('|');
-    return wanted === found
+      .sort();
+    return isEqual(wanted, found)
       ? []
       : [
           `Entity ${table.name} must list every column with its design type and key markers.`,
@@ -139,8 +126,7 @@ function checkRelationships(
             `${column.references?.table}|${table.name}|${column.name}`,
         ),
     )
-    .sort()
-    .join('|');
+    .sort();
   const actual = db.relationships
     .map((relationship) =>
       [
@@ -149,9 +135,8 @@ function checkRelationships(
         relationship.roleA,
       ].join('|'),
     )
-    .sort()
-    .join('|');
-  return actual === expected
+    .sort();
+  return isEqual(actual, expected)
     ? []
     : ['Diagram relationships must match the design foreign keys.'];
 }

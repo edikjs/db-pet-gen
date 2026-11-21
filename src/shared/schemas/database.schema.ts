@@ -1,6 +1,11 @@
 import { QuoteUtils } from '@pgsql/quotes';
 import reservedIdentifiers from 'reserved-identifiers';
 import { z } from 'zod';
+import {
+  validForeignKeys,
+  distinctNames,
+  distinctRelationNames,
+} from './designIntegrity';
 
 const jsKeywords = reservedIdentifiers();
 
@@ -13,57 +18,95 @@ const Identifier = z
     'Identifier must be safe to render unquoted',
   );
 
-const COLUMN_TYPES = [
-  'INTEGER',
-  'BIGINT',
-  'SMALLINT',
-  'REAL',
-  'NUMERIC',
-  'TEXT',
-  'VARCHAR',
-  'BOOLEAN',
-  'DATE',
-  'TIMESTAMP',
-] as const;
+export const columnValues = {
+  INTEGER: z.int(),
+  BIGINT: z.int(),
+  SMALLINT: z.int(),
+  REAL: z.number(),
+  NUMERIC: z.number(),
+  TEXT: z.string(),
+  VARCHAR: z.string(),
+  BOOLEAN: z.boolean(),
+  DATE: z.string(),
+  TIMESTAMP: z.string(),
+};
 
-const DataColumnSchema = z.object({
-  name: Identifier,
-  type: z.enum(COLUMN_TYPES),
-  primaryKey: z.boolean().default(false),
-  nullable: z.boolean().default(true),
-  unique: z.boolean().default(false),
-  length: z.number().int().positive().nullable().default(null),
-  defaultValue: z
-    .union([z.string(), z.number(), z.boolean()])
-    .nullable()
-    .default(null),
-  references: z
-    .object({ table: Identifier, column: Identifier })
-    .nullable()
-    .default(null),
-  comment: z.string().default(''),
-});
+const DataColumnSchema = z
+  .object({
+    name: Identifier,
+    type: z.object(columnValues).keyof(),
+    primaryKey: z.boolean().default(false),
+    nullable: z.boolean().default(true),
+    unique: z.boolean().default(false),
+    length: z.number().int().positive().nullable().default(null),
+    defaultValue: z
+      .union([z.string(), z.number(), z.boolean()])
+      .nullable()
+      .default(null),
+    references: z
+      .object({ table: Identifier, column: Identifier })
+      .nullable()
+      .default(null),
+    comment: z.string().default(''),
+  })
+  .refine(
+    (column) => !column.primaryKey || !column.nullable,
+    'Primary key columns cannot be nullable.',
+  );
 export type DataColumn = z.infer<typeof DataColumnSchema>;
 
 const DataIndexSchema = z.object({
   name: Identifier,
-  columns: z.array(Identifier).min(1),
+  columns: z
+    .array(Identifier)
+    .min(1)
+    .refine(distinctNames, 'Duplicate index column.'),
   unique: z.boolean().default(false),
   comment: z.string().default(''),
 });
 export type DataIndex = z.infer<typeof DataIndexSchema>;
 
-const DataTableSchema = z.object({
-  name: Identifier,
-  comment: z.string().default(''),
-  columns: z.array(DataColumnSchema).min(1),
-  checks: z.array(z.string()).length(0).default([]),
-  indexes: z.array(DataIndexSchema).default([]),
-});
+const DataTableSchema = z
+  .object({
+    name: Identifier,
+    comment: z.string().default(''),
+    columns: z
+      .array(DataColumnSchema)
+      .refine(
+        (columns) => columns.some((column) => column.primaryKey),
+        'A table needs a primary key.',
+      )
+      .refine(
+        (columns) => distinctNames(columns.map((column) => column.name)),
+        'Duplicate column name.',
+      ),
+    checks: z.array(z.string()).length(0).default([]),
+    indexes: z.array(DataIndexSchema).default([]),
+  })
+  .refine(({ columns, indexes }) => {
+    const names = new Set(columns.map((column) => column.name));
+    const indexed = indexes.flatMap((index) => index.columns);
+    return indexed.every((name) => names.has(name));
+  }, 'Index columns must exist in their table.');
 export type DataTable = z.infer<typeof DataTableSchema>;
 
 export const DataModelSchema = z.object({
-  tables: z.array(DataTableSchema).min(2).max(8),
+  tables: z
+    .array(DataTableSchema)
+    .min(2)
+    .max(8)
+    .refine(distinctRelationNames, 'Duplicate table or index name.')
+    .refine(
+      (tables) =>
+        tables.some((table) =>
+          table.columns.some((column) => column.references),
+        ),
+      'The design requires at least one foreign key.',
+    )
+    .refine(
+      validForeignKeys,
+      'Foreign keys must reference an earlier, individually unique column of the same type.',
+    ),
 });
 export type DataModel = z.infer<typeof DataModelSchema>;
 
@@ -79,7 +122,8 @@ export const SeedDataSchema = z.object({
               z.union([z.string(), z.number(), z.boolean(), z.null()]),
             ),
           )
-          .min(1),
+          .min(2)
+          .max(5),
       }),
     )
     .min(2),

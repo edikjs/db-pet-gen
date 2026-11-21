@@ -7,6 +7,7 @@ import {
   resumeRun,
   runGenerate,
   type PipelineEvent,
+  type RunResult,
 } from '../workflows/generate';
 import type { CliDependencies } from './types';
 
@@ -29,21 +30,26 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
   const write = dependencies.write ?? console.log;
   const error = dependencies.error ?? console.error;
 
-  const progress = (label: string) => {
+  async function runWithProgress(
+    label: string,
+    action: (onProgress: (event: PipelineEvent) => void) => Promise<RunResult>,
+  ) {
     const spinner = process.stderr.isTTY
       ? ora({ text: label, stream: process.stderr }).start()
       : null;
-    return {
-      event(event: PipelineEvent): void {
+    let result: RunResult;
+    try {
+      result = await action((event) => {
         const text = `${event.stage}: ${event.kind.replaceAll('_', ' ')}${event.detail ? ` — ${event.detail}` : ''}`;
         if (spinner) spinner.text = text;
         else error(text);
-      },
-      stop(): void {
-        spinner?.stop();
-      },
-    };
-  };
+      });
+    } finally {
+      spinner?.stop();
+    }
+    write(chalk.green(`Generated: ${result.readmePath}`));
+    return result;
+  }
 
   program
     .name('db-pet-gen')
@@ -55,23 +61,20 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
     .requiredOption('-t, --topic <topic>', 'the domain to generate')
     .action(async (options: { topic: string }) => {
       const config = load();
-      const status = progress('Preparing generation...');
-      try {
-        const result = await generate({
-          topic: options.topic,
-          config,
-          onRunStarted: (runId, workspace) =>
-            error(`Run started: ${runId}\nWorkspace: ${workspace}`),
-          onProgress: status.event,
-        });
-        status.stop();
-        write(chalk.green(`Generated: ${result.readmePath}`));
-        write(
-          `Run id: ${result.runId}\nQA: ${result.workspace}/qa-report.json\nLog: ${result.workspace}/events.jsonl`,
-        );
-      } finally {
-        status.stop();
-      }
+      const result = await runWithProgress(
+        'Preparing generation...',
+        (onProgress) =>
+          generate({
+            topic: options.topic,
+            config,
+            onRunStarted: (runId, workspace) =>
+              error(`Run started: ${runId}\nWorkspace: ${workspace}`),
+            onProgress,
+          }),
+      );
+      write(
+        `Run id: ${result.runId}\nQA: ${result.workspace}/qa-report.json\nLog: ${result.workspace}/events.jsonl`,
+      );
     });
 
   program
@@ -80,19 +83,11 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
     .argument('<run-id>', 'the run to resume')
     .action(async (runId: string) => {
       const config = load();
-      const status = progress(`Resuming ${runId}...`);
-      try {
-        const result = await resume({
-          runId,
-          config,
-          onProgress: status.event,
-        });
-        status.stop();
-        write(chalk.green(`Generated: ${result.readmePath}`));
-        write(`Run id: ${result.runId}\nLog: ${result.workspace}/events.jsonl`);
-      } finally {
-        status.stop();
-      }
+      const result = await runWithProgress(
+        `Resuming ${runId}...`,
+        (onProgress) => resume({ runId, config, onProgress }),
+      );
+      write(`Run id: ${result.runId}\nLog: ${result.workspace}/events.jsonl`);
     });
   return program;
 }

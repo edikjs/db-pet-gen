@@ -53,6 +53,8 @@ run against PostgreSQL.
   and base types, literal seed rows, and the README's ER copy against the checked
   data. The judge handles the remaining semantic review. Model-written SQL,
   Mermaid and Markdown must pass their checks before they are written.
+- Validate design keys and references before accepting a design. Seed each
+  design table once in order with 2–5 rows, matching columns, keys and parents.
 - Antipattern: pass-through wrappers. Do not create a one-line function that
   only renames a library call (for example `camelName` around `camelCase`).
   Call the library directly and keep functions only when they encode a real

@@ -35,6 +35,7 @@
     "flare-redact": "^1.10.2",
     "mdast-util-to-string": "^4.0.0",
     "mermaid": "^12.3.0",
+    "micromark": "^4.0.3",
     "node-sql-parser": "^5.4.0",
     "ora": "^10.0.0",
     "remark-parse": "^11.0.0",

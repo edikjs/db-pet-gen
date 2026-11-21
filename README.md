@@ -204,7 +204,7 @@ succeed.
 | Object     | Shape and constraints                                                                                                                                |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Design`   | `title` (≥3 chars), `summary` (≥20 chars), `assumptions` (1–6 strings), `features` (2–8 strings), `tables` (2–8), `mermaid` (string), `ddl` (string) |
-| `Examples` | `tables` (≥2 seed tables, ≥1 row each), `operations` (2–12), `seedSql` (string), `readme` (string)                                                   |
+| `Examples` | `tables` (every design table once, in order, 2–5 rows each), `operations` (2–12), `seedSql` (string), `readme` (string)                              |
 | `Judge`    | `matches` (boolean), `problems` (array of strings)                                                                                                   |
 
 A table has a `name`, `comment`, `checks` (always empty), `indexes` and at least
@@ -213,7 +213,13 @@ one column. A column has a `name`, a `type` from `INTEGER`, `BIGINT`, `SMALLINT`
 flags: `primaryKey`, `nullable`, `unique`, `length`, `defaultValue`,
 `references: { table, column }` and `comment`. Parent tables are listed before
 children, foreign keys point to an earlier table's primary/unique column of the
-same type, and at least one foreign key is required.
+same type, and at least one foreign key is required. Every table needs a non-null
+primary key. Table and index names share a namespace; column names must be unique
+within their table.
+
+Each seed row supplies exactly the designed columns, with the expected JSON
+value types and nullability. Primary and unique keys (including composite keys)
+must be distinct, and each non-null foreign key must match a seeded parent.
 
 For the `Pet records` topic the design data is:
 
@@ -417,7 +423,9 @@ binding before the statements can run in `psql`.
 ## Validation rules
 
 SQL, Mermaid and Markdown are model-written strings checked before anything is
-written. Beyond syntax and allowed links, the generator compares parsed DDL
+written. Zod checks seed rows against the designed columns and foreign-key
+values. remark parses the README; micromark supplies the tokens used to check
+that every code fence closes. Beyond syntax and allowed links, the generator compares parsed DDL
 table and column names and base types to the design, literal INSERT rows to the
 structured seed data, and the single embedded ER diagram to the checked asset.
 
@@ -457,7 +465,7 @@ resumption count, per-stage attempts and timings, and the model identity
 
 ```json
 {
-  "version": 9,
+  "version": 10,
   "runId": "20261121-092452-public-library-database-018b02",
   "topic": "Public library database",
   "status": "completed",

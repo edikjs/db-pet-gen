@@ -8,6 +8,9 @@ import {
   validateOperations,
   validateReadme,
   validateSeedSql,
+  validateSeedData,
+  type Design,
+  type Examples,
   type Judge,
 } from '../../shared';
 import { requestJson, type JsonOutcome } from '../../llm';
@@ -22,7 +25,7 @@ import {
 } from './prompts';
 import type { PipelineEvent, PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 9;
+export const GRAPH_VERSION = 10;
 
 function correctiveReply(rejection: string): string {
   return JSON.stringify({ validationFeedback: rejection });
@@ -69,6 +72,15 @@ function requireValue<T>(value: T | null, name: string): T {
   return value;
 }
 
+function verifyExamples(examples: Examples, design: Design): string[] {
+  return [
+    ...validateSeedData(examples, design),
+    ...validateSeedSql(examples.seedSql, examples),
+    ...validateReadme(examples.readme, ASSET_PATHS, design.mermaid),
+    ...validateOperations(examples, design),
+  ];
+}
+
 function judgeViolations(value: Judge): string[] {
   if (value.problems.length > 0) return value.problems;
   if (value.matches) return [];
@@ -109,11 +121,7 @@ export function buildPipeline(options: PipelineOptions) {
               schema: ExamplesSchema,
               keys: Object.keys(ExamplesSchema.shape),
               emptyError: EMPTY_JSON_ERROR,
-              verify: (value) => [
-                ...validateSeedSql(value.seedSql, value),
-                ...validateReadme(value.readme, ASSET_PATHS, design.mermaid),
-                ...validateOperations(value, design),
-              ],
+              verify: (examples) => verifyExamples(examples, design),
               corrective: correctiveReply,
               attempts: STAGE_ATTEMPTS,
             }),

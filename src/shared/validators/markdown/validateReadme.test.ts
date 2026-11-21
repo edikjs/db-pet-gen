@@ -8,6 +8,22 @@ const availablePaths = [
 ];
 
 describe('README validation', () => {
+  it('recognizes CommonMark fences inside block quotes and ignores indented code', () => {
+    expect(
+      validateReadme(
+        `${readme}\n> ~~~sql\n> select 1\n`,
+        availablePaths,
+        diagram,
+      ),
+    ).toContain('Unclosed Markdown code fence.');
+    expect(
+      validateReadme(
+        `${readme}\nLiteral example:\n\n    ~~~\n`,
+        availablePaths,
+        diagram,
+      ),
+    ).toEqual([]);
+  });
   it('accepts a model-written README with checked sections and links', () => {
     expect(validateReadme(readme, availablePaths, diagram)).toEqual([]);
     expect(

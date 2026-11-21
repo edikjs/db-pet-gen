@@ -1,7 +1,9 @@
+export { validateSeedData } from './seedIntegrity';
 export { ProjectPlanSchema, type ProjectPlan } from './plan.schema';
 export { DesignSchema, ExamplesSchema, JudgeSchema } from './pipeline.schema';
 export type { Design, Examples, Judge } from './pipeline.schema';
 export {
+  columnValues,
   DataModelSchema,
   OperationsSchema,
   SeedDataSchema,

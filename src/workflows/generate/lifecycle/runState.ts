@@ -41,31 +41,29 @@ export class RunRecorder {
     );
   }
 
-  async progress(event: PipelineEvent): Promise<void> {
-    const now = new Date().toISOString();
+  private updateStage(event: PipelineEvent, now: string): void {
+    const entry = this.manifest.stages[event.stage];
     if (event.kind === 'stage_started') {
       this.manifest.stage = event.stage;
       this.manifest.stages[event.stage] = {
         status: 'running',
-        attempts: (this.manifest.stages[event.stage]?.attempts ?? 0) + 1,
+        attempts: (entry?.attempts ?? 0) + 1,
         startedAt: now,
         finishedAt: null,
         error: null,
       };
-    } else if (
-      event.kind === 'stage_finished' ||
-      event.kind === 'stage_failed'
-    ) {
-      const entry = this.manifest.stages[event.stage];
-      if (entry) {
-        entry.status = event.kind === 'stage_finished' ? 'completed' : 'failed';
-        entry.finishedAt = now;
-        entry.error =
-          event.kind === 'stage_failed'
-            ? this.redact(event.detail ?? '')
-            : null;
-      }
+      return;
     }
+    if (!entry) return;
+    const failed = event.kind === 'stage_failed';
+    entry.status = failed ? 'failed' : 'completed';
+    entry.error = failed ? this.redact(event.detail ?? '') : null;
+    entry.finishedAt = now;
+  }
+
+  async progress(event: PipelineEvent): Promise<void> {
+    const now = new Date().toISOString();
+    this.updateStage(event, now);
     this.manifest.updatedAt = now;
     await this.event(event.kind, event.detail);
     await writeManifest(join(this.workspace, 'run.json'), this.manifest);
