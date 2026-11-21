@@ -1,4 +1,4 @@
-import { Parser } from 'node-sql-parser';
+import { Parser, type AST } from 'node-sql-parser';
 import { errorMessage } from '../../utils';
 import type { DataModel, SeedData } from '../../schemas';
 import { ddlDataIssues, seedDataIssues } from './artifactData';
@@ -7,17 +7,10 @@ const parser = new Parser();
 const DIALECT = { database: 'Postgresql' } as const;
 
 /** The statement kind the parser actually accepted. */
-function kind(statement: unknown): string {
-  if (
-    typeof statement !== 'object' ||
-    statement === null ||
-    Array.isArray(statement)
-  )
-    return 'unknown';
-  const node = statement as Record<string, unknown>;
-  if (node.type === 'create' && typeof node.keyword === 'string')
-    return `create ${node.keyword}`;
-  return typeof node.type === 'string' ? node.type : 'unknown';
+function kind(statement: AST): string {
+  return statement.type === 'create'
+    ? `create ${statement.keyword}`
+    : statement.type;
 }
 
 /** Parses SQL with the official library and checks only statement kinds. */
@@ -25,7 +18,7 @@ function check(
   sql: string,
   label: string,
   allowed: readonly string[],
-  compare: (statements: unknown[]) => string[],
+  compare: (statements: AST[]) => string[],
 ): string[] {
   try {
     const ast = parser.astify(sql, DIALECT);

@@ -429,13 +429,13 @@ that every code fence closes. Beyond syntax and allowed links, the generator com
 table and column names and base types to the design, literal INSERT rows to the
 structured seed data, and the single embedded ER diagram to the checked asset.
 
-| Artifact       | Library           | Checks                                                                                                                   |
-| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| DDL            | `node-sql-parser` | PostgreSQL dialect; only `create table` and `create index` statements                                                    |
-| Seed SQL       | `node-sql-parser` | PostgreSQL dialect; only `insert` statements                                                                             |
-| Operations     | `node-sql-parser` | One `SELECT`/`INSERT`/`UPDATE`/`DELETE`; declared tables exist and are mentioned; used `:params` match declared params   |
-| ER source      | `mermaid`         | Official parser; `erDiagram` first; entities, column types and `PK`/`FK`/`UK` markers match the design; one line per FK  |
-| Project README | `remark`          | One title; all eight required sections; text fallback; inline Mermaid fence; no raw HTML or unclosed fences; local links |
+| Artifact       | Library           | Checks                                                                                                                                                                                  |
+| -------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DDL            | `node-sql-parser` | PostgreSQL dialect; only `create table` and `create index` statements                                                                                                                   |
+| Seed SQL       | `node-sql-parser` | PostgreSQL dialect; only `insert` statements                                                                                                                                            |
+| Operations     | `node-sql-parser` | Exactly one `SELECT`/`INSERT`/`UPDATE`/`DELETE`; physical tables match the declared, unqualified design names; CTE names are local to their query; used `:params` match declared params |
+| ER source      | `mermaid`         | Official parser; `erDiagram` first; entities, column types and `PK`/`FK`/`UK` markers match the design; one line per FK                                                                 |
+| Project README | `remark`          | One title; all eight required sections; text fallback; inline Mermaid fence; no raw HTML or unclosed fences; local links                                                                |
 
 Identifiers must be safe to render unquoted and must not be reserved words.
 Mermaid markup (`<`, `>`), directives (`class`, `classdef`, `click`, `linkStyle`,
@@ -465,7 +465,7 @@ resumption count, per-stage attempts and timings, and the model identity
 
 ```json
 {
-  "version": 10,
+  "version": 11,
   "runId": "20261121-092452-public-library-database-018b02",
   "topic": "Public library database",
   "status": "completed",

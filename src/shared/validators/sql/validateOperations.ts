@@ -1,46 +1,24 @@
 import { Parser } from 'node-sql-parser';
-import { difference, intersection } from 'es-toolkit';
+import { difference, intersection, union } from 'es-toolkit';
 import type { DataModel, Operation, Operations } from '../../schemas';
+import { operationReferences } from './operationReferences';
 
 const parser = new Parser();
 const DIALECT = { database: 'Postgresql' } as const;
 
 function parseOperation(statement: string) {
   try {
-    const { ast, tableList } = parser.parse(statement, DIALECT);
+    const ast = parser.astify(statement, DIALECT);
     const statements = Array.isArray(ast) ? ast : [ast];
     if (
-      !statements.length ||
-      !statements.every(({ type }) =>
-        ['select', 'insert', 'update', 'delete'].includes(type),
-      )
+      statements.length !== 1 ||
+      !['select', 'insert', 'update', 'delete'].includes(statements[0].type)
     )
       return null;
-    return {
-      tables: tableList.map((entry) => entry.split('::').at(-1)!),
-      parameters: statementParameters(ast),
-    };
+    return operationReferences(statements[0]);
   } catch {
     return null;
   }
-}
-
-/** Named parameters found in the parsed statement. */
-function statementParameters(ast: unknown): string[] {
-  const names = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      value.forEach(visit);
-      return;
-    }
-    if (typeof value !== 'object' || value === null) return;
-    const node = value as Record<string, unknown>;
-    if (node.type === 'param' && typeof node.value === 'string')
-      names.add(node.value);
-    Object.values(node).forEach(visit);
-  };
-  visit(ast);
-  return [...names];
 }
 
 /** One grouped violation for a nonempty list of invalid names. */
@@ -59,7 +37,7 @@ function operationViolations(operation: Operation, model: DataModel): string[] {
   const parsed = parseOperation(operation.statement);
   if (!parsed)
     return [
-      `Operation ${operation.name} is not a parsed SELECT, INSERT, UPDATE or DELETE statement.`,
+      `Operation ${operation.name} must contain exactly one parsed SELECT, INSERT, UPDATE or DELETE statement.`,
     ];
 
   const designTables = model.tables.map((table) => table.name);
@@ -68,7 +46,7 @@ function operationViolations(operation: Operation, model: DataModel): string[] {
 
   return [
     ...violation(
-      difference(declared, designTables),
+      difference(union(declared, mentioned), designTables),
       operation,
       'names tables absent from the design',
     ),

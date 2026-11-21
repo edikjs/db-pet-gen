@@ -49,7 +49,7 @@ describe('generation graph', () => {
       ['judgeStage', 'publishStage'],
       ['publishStage', '__end__'],
     ]);
-    expect(GRAPH_VERSION).toBe(10);
+    expect(GRAPH_VERSION).toBe(11);
   });
 
   it('asks the model for each generation stage and reports every stage', async () => {

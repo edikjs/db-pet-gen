@@ -25,6 +25,12 @@ describe('operation validation', () => {
     expect(issues(bad)).toMatch(/parsed SELECT/u);
   });
 
+  it('requires one statement even when both are SELECTs on declared tables', () => {
+    const bad = structuredClone(operations);
+    bad.operations[0].statement += '; SELECT * FROM pets';
+    expect(issues(bad)).toContain('exactly one');
+  });
+
   it('rejects tables that are not in the checked design', () => {
     const bad = structuredClone(operations);
     bad.operations[0].tables = ['ghosts'];
@@ -58,6 +64,27 @@ describe('operation validation', () => {
       'WITH selected AS (SELECT id FROM pets WHERE owner_id = :owner_id) SELECT id FROM selected';
     expect(validateOperations(withCte, dataModel)).toEqual([]);
   });
+
+  it.each([
+    'SELECT p.id FROM pets p JOIN ghosts g ON g.id = p.id',
+    'SELECT * FROM (WITH ghosts AS (SELECT * FROM pets) SELECT * FROM ghosts) AS q JOIN ghosts ON true',
+  ])('rejects an unknown physical table in %s', (statement) => {
+    const op = { ...operations.operations[0], statement, parameters: [] };
+    expect(issues({ operations: [op] })).toContain(
+      'absent from the design: ghosts',
+    );
+  });
+
+  it.each([
+    'WITH a AS (SELECT * FROM pets), b AS (SELECT * FROM a) SELECT * FROM b',
+    'WITH RECURSIVE n AS (SELECT id FROM pets UNION ALL SELECT id FROM n) SELECT * FROM n',
+  ])(
+    'allows scoped CTEs while counting only physical design tables in %s',
+    (statement) => {
+      const op = { ...operations.operations[0], statement, parameters: [] };
+      expect(issues({ operations: [op] })).toBe('');
+    },
+  );
 
   it('rejects parameters that are not used or are not declared', () => {
     const unused = structuredClone(operations);

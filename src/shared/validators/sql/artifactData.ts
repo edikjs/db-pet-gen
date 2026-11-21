@@ -1,4 +1,5 @@
 import { isEqual } from 'es-toolkit';
+import type { AST } from 'node-sql-parser';
 import { z } from 'zod';
 import type { DataModel, SeedData } from '../../schemas';
 
@@ -29,10 +30,7 @@ const table = z
     columns: node.create_definitions.filter((item) => 'name' in item),
   }));
 
-export function ddlDataIssues(
-  statements: unknown[],
-  design: DataModel,
-): string[] {
+export function ddlDataIssues(statements: AST[], design: DataModel): string[] {
   const parsed = z
     .array(z.union([table, z.object({ keyword: z.literal('index') })]))
     .safeParse(statements);
@@ -93,7 +91,7 @@ const insert = z
   }));
 
 export function seedDataIssues(
-  statements: unknown[],
+  statements: AST[],
   examples: SeedData,
 ): string[] {
   const parsed = z.array(insert).safeParse(statements);

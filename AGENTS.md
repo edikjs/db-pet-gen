@@ -41,6 +41,15 @@ library exists or the dependency would be disproportionate. Avoid libraries
 whose last release is more than two years old unless they are still widely
 used today.
 
+Keep fixes proportional to the supported use cases. Enforce the stated contract
+with the simplest readable code; add a check only for a concrete failure it
+prevents. Prefer a focused regression test over a catalogue of hypothetical cases.
+
+Use concrete domain or library types when the input shape is known. Reserve
+`unknown` for unchecked boundaries such as parsed external JSON and thrown
+values; narrow it there rather than passing it through typed code. Do not
+replace it with `any` or a double assertion.
+
 Model responses provide **structured data**. SQL, ER source and Markdown are
 model-written strings checked before they are written. Operation statements, DDL
 and seed SQL are parsed with `node-sql-parser`; Markdown structure, raw HTML and
@@ -55,6 +64,8 @@ run against PostgreSQL.
   Mermaid and Markdown must pass their checks before they are written.
 - Validate design keys and references before accepting a design. Seed each
   design table once in order with 2–5 rows, matching columns, keys and parents.
+- Each operation is one parsed statement. Compare physical table references
+  with the declared design tables after resolving query-local CTEs.
 - Antipattern: pass-through wrappers. Do not create a one-line function that
   only renames a library call (for example `camelName` around `camelCase`).
   Call the library directly and keep functions only when they encode a real

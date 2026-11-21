@@ -25,7 +25,7 @@ import {
 } from './prompts';
 import type { PipelineEvent, PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 10;
+export const GRAPH_VERSION = 11;
 
 function correctiveReply(rejection: string): string {
   return JSON.stringify({ validationFeedback: rejection });
