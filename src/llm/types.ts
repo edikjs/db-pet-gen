@@ -8,22 +8,11 @@ export interface GenerationModel {
 
 /** One request: the model, the conversation and the checks of the answer. */
 export interface JsonRequest<T> {
-  /** The model that answers. */
+  stage: string;
   model: GenerationModel;
-  /** The conversation so far; the request appends to a copy. */
   messages: BaseMessage[];
-  /** The schema the answer is validated with. */
-  schema: z.ZodType<T>;
-  /** The keys of the answer, used to unwrap a JSON-Schema envelope. */
-  keys?: readonly string[];
-  /** The error reported when the text holds no JSON at all. */
-  emptyError?: string;
-  /** Domain checks. Return `[]` to accept the answer; may check asynchronously. */
-  verify?: (value: T) => string[] | Promise<string[]>;
-  /** The feedback sent after a rejected answer. */
-  corrective: (rejection: string) => string;
-  /** How often the model is asked, the first answer included. */
-  attempts: number;
+  schema: z.ZodType<T> & Pick<z.ZodObject, 'shape'>;
+  verify: (value: T) => string[] | Promise<string[]>;
 }
 
 /** The outcome of a request: the checked answer or the last rejection. */

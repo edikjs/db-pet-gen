@@ -8,9 +8,6 @@ import {
 } from '../../shared';
 import { ASSET_PATHS } from './artifacts';
 
-export const STAGE_ATTEMPTS = 2;
-export const EMPTY_JSON_ERROR = 'the answer was not a JSON object';
-
 function stageMessages(instructions: string, data: object) {
   return [
     new SystemMessage(`${instructions}

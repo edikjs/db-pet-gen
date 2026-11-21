@@ -1,6 +1,4 @@
 import { StateGraph, START, END } from '@langchain/langgraph';
-import type { BaseMessage } from '@langchain/core/messages';
-import type { z } from 'zod';
 import {
   DesignAnswerSchema,
   ExamplesSchema,
@@ -18,36 +16,23 @@ import { requestJson } from '../../llm';
 import { publishArtifacts, ASSET_PATHS } from './artifacts';
 import { PipelineState } from './pipelineState.schema';
 import { renderDiagram } from './renderDiagram';
-import {
-  designPrompt,
-  EMPTY_JSON_ERROR,
-  examplesPrompt,
-  judgePrompt,
-  STAGE_ATTEMPTS,
-} from './prompts';
-import type { PipelineEvent, PipelineOptions } from './types';
+import { designPrompt, examplesPrompt, judgePrompt } from './prompts';
+import type { PipelineOptions } from './types';
 
 export const GRAPH_VERSION = 12;
 
-async function report(
-  options: PipelineOptions,
-  event: PipelineEvent,
-): Promise<void> {
-  await options.onEvent?.(event);
-}
-
 async function stage<T>(
-  options: PipelineOptions,
+  { onEvent }: PipelineOptions,
   name: string,
   action: () => Promise<T>,
 ): Promise<T> {
-  await report(options, { kind: 'stage_started', stage: name });
+  await onEvent?.({ kind: 'stage_started', stage: name });
   try {
     const result = await action();
-    await report(options, { kind: 'stage_finished', stage: name });
+    await onEvent?.({ kind: 'stage_finished', stage: name });
     return result;
   } catch (error) {
-    await report(options, {
+    await onEvent?.({
       kind: 'stage_failed',
       stage: name,
       detail: error instanceof Error ? error.message : String(error),
@@ -78,40 +63,17 @@ function judgeViolations(value: Judge): string[] {
 
 /** A new run and a resume compile exactly the same graph. */
 export function buildPipeline(options: PipelineOptions) {
-  async function ask<T>(
-    name: string,
-    messages: BaseMessage[],
-    schema: z.ZodType<T> & Pick<z.ZodObject, 'shape'>,
-    verify: (value: T) => string[] | Promise<string[]>,
-  ) {
-    const outcome = await requestJson({
-      model: options.model,
-      messages,
-      schema,
-      keys: Object.keys(schema.shape),
-      verify,
-      emptyError: EMPTY_JSON_ERROR,
-      corrective: (validationFeedback) =>
-        JSON.stringify({ validationFeedback }),
-      attempts: STAGE_ATTEMPTS,
-    });
-    if (!outcome.ok) {
-      throw new Error(
-        `The model did not return a usable ${name}: ${outcome.error}`,
-      );
-    }
-    return outcome.data;
-  }
-
+  const { model } = options;
   return new StateGraph(PipelineState)
     .addNode('designStage', async (state) =>
       stage(options, 'design', async () => {
-        const answer = await ask(
-          'design',
-          designPrompt(state.topic),
-          DesignAnswerSchema,
-          (value) => validateDdl(value.ddl, value),
-        );
+        const answer = await requestJson({
+          model,
+          stage: 'design',
+          messages: designPrompt(state.topic),
+          schema: DesignAnswerSchema,
+          verify: (value) => validateDdl(value.ddl, value),
+        });
         return { design: { ...answer, mermaid: await renderDiagram(answer) } };
       }),
     )
@@ -119,12 +81,13 @@ export function buildPipeline(options: PipelineOptions) {
       stage(options, 'examples', async () => {
         const design = requireValue(state.design, 'design');
         return {
-          examples: await ask(
-            'examples',
-            examplesPrompt(state.topic, design),
-            ExamplesSchema,
-            (examples) => verifyExamples(examples, design),
-          ),
+          examples: await requestJson({
+            model,
+            stage: 'examples',
+            messages: examplesPrompt(state.topic, design),
+            schema: ExamplesSchema,
+            verify: (examples) => verifyExamples(examples, design),
+          }),
         };
       }),
     )
@@ -132,12 +95,13 @@ export function buildPipeline(options: PipelineOptions) {
       stage(options, 'judge', async () => {
         const design = requireValue(state.design, 'design');
         const examples = requireValue(state.examples, 'examples');
-        await ask(
-          'judge',
-          judgePrompt(state.topic, design, examples),
-          JudgeSchema,
-          judgeViolations,
-        );
+        await requestJson({
+          model,
+          stage: 'judge',
+          messages: judgePrompt(state.topic, design, examples),
+          schema: JudgeSchema,
+          verify: judgeViolations,
+        });
         return {};
       }),
     )

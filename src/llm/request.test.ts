@@ -24,36 +24,34 @@ function createModel(
   };
 }
 
-function request(
+function ask(
   model: GenerationModel,
-  overrides: Partial<JsonRequest<z.infer<typeof AnswerSchema>>> = {},
-): JsonRequest<z.infer<typeof AnswerSchema>> {
-  return {
+  verify: JsonRequest<z.infer<typeof AnswerSchema>>['verify'] = () => [],
+) {
+  return requestJson({
+    stage: 'fixture',
     model,
     messages: [new HumanMessage('Give me the answer.')],
     schema: AnswerSchema,
-    corrective: (rejection) => `Correct this: ${rejection}`,
-    attempts: 2,
-    ...overrides,
-  };
+    verify,
+  });
 }
 
 describe('requestJson', () => {
   it('returns the answer of the first call when it is usable', async () => {
-    const outcome = await requestJson(request(createModel(['{"value": 1}'])));
-
-    expect(outcome).toEqual({ ok: true, data: { value: 1 } });
+    await expect(ask(createModel(['{"value": 1}']))).resolves.toEqual({
+      value: 1,
+    });
   });
 
   it('asks again with the corrective message when the schema rejects the answer', async () => {
     const calls: string[] = [];
     const model = createModel(['{"value": "no"}', '{"value": 2}'], calls);
 
-    const outcome = await requestJson(request(model));
-
-    expect(outcome).toEqual({ ok: true, data: { value: 2 } });
-    expect(calls[1]).toContain('Correct this:');
-    expect(calls[1]).toContain('value');
+    await expect(ask(model)).resolves.toEqual({ value: 2 });
+    expect(JSON.parse(calls[1])).toEqual({
+      validationFeedback: expect.stringContaining('value'),
+    });
   });
 
   it.each(['gsk_synthetic', 'opk_synthetic'])(
@@ -65,10 +63,11 @@ describe('requestJson', () => {
         calls,
       );
 
-      const outcome = await requestJson(request(model));
-
-      expect(outcome.ok).toBe(false);
-      expect(JSON.stringify(outcome)).not.toContain(apiKey);
+      await expect(ask(model)).rejects.toThrow(
+        new Error(
+          'The model did not return a usable fixture: The provider request failed; check the local client diagnostic.',
+        ),
+      );
       expect(calls).toEqual(['Give me the answer.']);
     },
   );
@@ -83,50 +82,35 @@ describe('requestJson', () => {
     );
     const model = createModel([limit, '{"value": 3}'], calls);
 
-    const outcome = await requestJson(request(model));
-
+    await expect(ask(model)).rejects.toThrow(
+      /rate-limited.*LLM_MAX_CONCURRENCY/u,
+    );
     expect(calls).toHaveLength(1);
-    expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
-      expect(outcome.error).toContain('rate-limited');
-      expect(outcome.error).toContain('LLM_MAX_CONCURRENCY');
-    }
   });
 
   it('reports the last rejection when the attempts run out', async () => {
-    const outcome = await requestJson(
-      request(createModel(['{"value": "no"}'])),
-    );
-
-    expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
-      expect(outcome.error).toContain('value');
-    }
+    const calls: string[] = [];
+    await expect(
+      ask(createModel(['not JSON', '{"value":"no"}'], calls)),
+    ).rejects.toThrow('value');
+    expect(calls).toHaveLength(2);
   });
 
-  it('reports the configured empty-answer error when the text holds no JSON', async () => {
+  it('reports an empty-answer error when the text holds no JSON', async () => {
     const model = createModel(['no json here']);
 
-    const outcome = await requestJson(
-      request(model, { emptyError: 'the answer was not a JSON object' }),
+    await expect(ask(model)).rejects.toThrow(
+      'the answer was not a JSON object',
     );
-
-    expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
-      expect(outcome.error).toBe('the answer was not a JSON object');
-    }
   });
 
   it('awaits asynchronous domain checks before accepting an answer', async () => {
     const model = createModel(['{"value": 1}', '{"value": 2}']);
 
-    const outcome = await requestJson(
-      request(model, {
-        verify: async (answer) =>
-          answer.value === 1 ? ['the value is too small'] : [],
-      }),
-    );
-
-    expect(outcome).toEqual({ ok: true, data: { value: 2 } });
+    await expect(
+      ask(model, async (answer) =>
+        answer.value === 1 ? ['the value is too small'] : [],
+      ),
+    ).resolves.toEqual({ value: 2 });
   });
 });

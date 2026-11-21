@@ -1,74 +1,61 @@
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
-import type { z } from 'zod';
 import { messageText, parseJsonObject, unwrapEnvelope } from './answer';
 import { isRateLimitError, RATE_LIMIT_FAILURE } from './rateLimit';
 import type { JsonOutcome, JsonRequest } from './types';
 
 async function validateAnswer<T>(
   text: string,
-  request: JsonRequest<T>,
+  { schema, verify }: JsonRequest<T>,
 ): Promise<JsonOutcome<T>> {
   const candidate = parseJsonObject(text);
-  const value =
-    candidate && request.keys
-      ? unwrapEnvelope(candidate, request.keys)
-      : candidate;
-  const parsed = request.schema.safeParse(value);
+  if (!candidate)
+    return { ok: false, error: 'the answer was not a JSON object' };
+  const parsed = schema.safeParse(
+    unwrapEnvelope(candidate, Object.keys(schema.shape)),
+  );
   if (!parsed.success) {
-    const error =
-      value === null && request.emptyError
-        ? request.emptyError
-        : zodIssues(parsed.error);
+    const error = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .join('; ');
     return { ok: false, error };
   }
-  const violations = await request.verify?.(parsed.data);
-  if (violations?.length) return { ok: false, error: violations.join('; ') };
+  const violations = await verify(parsed.data);
+  if (violations.length) return { ok: false, error: violations.join('; ') };
   return { ok: true, data: parsed.data };
 }
 
 /**
- * Asks the model until the answer is usable or the attempts run out.
+ * Returns the checked answer, giving a rejected answer one corrective turn.
  *
  * The client owns transport retries. Only rejected answers get a corrective
  * turn; provider diagnostics must never become conversation content.
  */
-export async function requestJson<T>(
-  request: JsonRequest<T>,
-): Promise<JsonOutcome<T>> {
+export async function requestJson<T>(request: JsonRequest<T>): Promise<T> {
   const messages = [...request.messages];
-  let error = request.emptyError ?? 'the model returned no valid JSON';
-
-  for (let remaining = request.attempts; remaining > 0; remaining -= 1) {
+  let rejection: string;
+  for (let attempt = 1; ; attempt++) {
     let text: string;
     try {
       text = messageText(await request.model.invoke(messages));
     } catch (modelError) {
-      if (isRateLimitError(modelError)) {
-        return { ok: false, error: RATE_LIMIT_FAILURE };
-      }
-      return {
-        ok: false,
-        error:
-          'The provider request failed; check the local client diagnostic.',
-      };
+      rejection = isRateLimitError(modelError)
+        ? RATE_LIMIT_FAILURE
+        : 'The provider request failed; check the local client diagnostic.';
+      break;
     }
 
     const answer = await validateAnswer(text, request);
-    if (answer.ok) return answer;
-    error = answer.error;
+    if (answer.ok) return answer.data;
+    rejection = answer.error;
+    if (attempt === 2) break;
 
     messages.push(
       new AIMessage(text),
-      new HumanMessage(request.corrective(error)),
+      new HumanMessage(JSON.stringify({ validationFeedback: rejection })),
     );
   }
 
-  return { ok: false, error };
-}
-
-/** The zod issues of an answer, one per line. */
-function zodIssues(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
-    .join('; ');
+  throw new Error(
+    `The model did not return a usable ${request.stage}: ${rejection}`,
+  );
 }
