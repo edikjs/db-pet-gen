@@ -1,4 +1,4 @@
-import { initObservability } from './index';
+import { createTraceAdapter } from './index';
 
 const config = {
   provider: 'none',
@@ -6,8 +6,10 @@ const config = {
   projectName: 'test',
 } as const;
 
-it('leaves tracing disabled by default', () => {
-  expect(initObservability(config)).toBeUndefined();
+it('leaves tracing disabled by default', async () => {
+  const trace = createTraceAdapter(config);
+  expect(() => trace.stageEvent('design', 'stage_started')).not.toThrow();
+  await expect(trace.shutdown()).resolves.toBeUndefined();
 });
 
 it('routes stage outcomes and shutdown to an injected provider', async () => {
@@ -18,12 +20,12 @@ it('routes stage outcomes and shutdown to an injected provider', async () => {
     .mockReturnValueOnce(design)
     .mockReturnValueOnce(examples);
   const shutdown = jest.fn(async () => undefined);
-  const handle = initObservability(config, () => ({ startStage, shutdown }))!;
-  handle.stageEvent('design', 'stage_started');
-  handle.stageEvent('examples', 'stage_started');
-  handle.stageEvent('examples', 'stage_failed');
-  handle.stageEvent('design', 'stage_finished');
-  await handle.shutdown();
+  const trace = createTraceAdapter(config, () => ({ startStage, shutdown }));
+  trace.stageEvent('design', 'stage_started');
+  trace.stageEvent('examples', 'stage_started');
+  trace.stageEvent('examples', 'stage_failed');
+  trace.stageEvent('design', 'stage_finished');
+  await trace.shutdown();
   expect(startStage.mock.calls).toEqual([['design'], ['examples']]);
   expect(design.mock.calls).toEqual([['ok']]);
   expect(examples.mock.calls).toEqual([['error']]);
@@ -31,6 +33,6 @@ it('routes stage outcomes and shutdown to an injected provider', async () => {
 });
 
 it('can open and shut down the configured Phoenix SDK', async () => {
-  const handle = initObservability({ ...config, provider: 'phoenix' })!;
-  await expect(handle.shutdown()).resolves.toBeUndefined();
+  const trace = createTraceAdapter({ ...config, provider: 'phoenix' });
+  await expect(trace.shutdown()).resolves.toBeUndefined();
 });

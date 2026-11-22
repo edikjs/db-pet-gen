@@ -1,3 +1,1 @@
-export * from './schemas';
-export * from './utils';
-export * from './validators';
+export { errorMessage, redact, reportDiagnostic } from './diagnostics';

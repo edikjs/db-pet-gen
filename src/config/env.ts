@@ -1,5 +1,5 @@
 import { trimEnd } from 'es-toolkit';
-import { redact } from '../shared/utils';
+import { redact } from '../shared';
 import type { AppConfig, ChatProvider } from './types';
 import { EnvSchema } from './env.schema';
 

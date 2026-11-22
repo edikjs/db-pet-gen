@@ -1,14 +1,7 @@
-import type { AppConfig } from '../config';
-import type {
-  GenerateOptions,
-  ResumeOptions,
-  RunResult,
-} from '../workflows/generate';
+import type { GenerateWorkflow } from '../workflows';
 
 export interface CliDependencies {
-  load?: () => AppConfig;
-  generate?: (options: GenerateOptions) => Promise<RunResult>;
-  resume?: (options: ResumeOptions) => Promise<RunResult>;
+  workflow?: GenerateWorkflow;
   write?: (line: string) => void;
   error?: (line: string) => void;
 }

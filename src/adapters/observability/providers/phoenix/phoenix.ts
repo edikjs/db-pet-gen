@@ -1,12 +1,11 @@
 import { register, SpanStatusCode } from '@arizeai/phoenix-otel';
-import type { AppConfig } from '../../../../config';
-import type { ObservabilityProvider } from '../..';
+import type { ObservabilityProvider, ObservabilitySettings } from '../..';
 
 export function createPhoenixProvider({
   projectName,
   endpoint,
 }: Pick<
-  AppConfig['observability'],
+  ObservabilitySettings,
   'projectName' | 'endpoint'
 >): ObservabilityProvider {
   const sdk = register({

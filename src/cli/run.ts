@@ -1,14 +1,12 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
 import ora from 'ora';
-import { loadConfig } from '../config';
 import { redact } from '../shared';
 import {
-  resumeRun,
-  runGenerate,
+  type GenerateWorkflow,
   type PipelineEvent,
   type RunResult,
-} from '../workflows/generate';
+} from '../workflows';
 import type { CliDependencies } from './types';
 
 function formatError(error: unknown): string {
@@ -22,11 +20,15 @@ function formatError(error: unknown): string {
   return redact(text, process.env.LLM_API_KEY);
 }
 
+function workflowOf(dependencies: CliDependencies): GenerateWorkflow {
+  if (!dependencies.workflow)
+    throw new Error('No generation workflow was provided to the CLI.');
+  return dependencies.workflow;
+}
+
 export function buildProgram(dependencies: CliDependencies = {}): Command {
   const program = new Command();
-  const load = dependencies.load ?? (() => loadConfig());
-  const generate = dependencies.generate ?? runGenerate;
-  const resume = dependencies.resume ?? resumeRun;
+  const workflow = () => workflowOf(dependencies);
   const write = dependencies.write ?? console.log;
   const error = dependencies.error ?? console.error;
 
@@ -60,16 +62,14 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
     .description('Generate a project from one topic')
     .argument('<topic>', 'the domain to generate')
     .action(async (topic: string) => {
-      const config = load();
       const result = await runWithProgress(
         'Preparing generation...',
         (onProgress) =>
-          generate({
+          workflow().generate({
             topic,
-            config,
+            onProgress,
             onRunStarted: (runId, workspace) =>
               error(`Run started: ${runId}\nWorkspace: ${workspace}`),
-            onProgress,
           }),
       );
       write(
@@ -82,10 +82,9 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
     .description('Retry a failed or interrupted run')
     .argument('<run-id>', 'the run to resume')
     .action(async (runId: string) => {
-      const config = load();
       const result = await runWithProgress(
         `Resuming ${runId}...`,
-        (onProgress) => resume({ runId, config, onProgress }),
+        (onProgress) => workflow().resume({ runId, onProgress }),
       );
       write(`Run id: ${result.runId}\nLog: ${result.workspace}/events.jsonl`);
     });

@@ -1,7 +1,2 @@
-export { resumeRun, runGenerate } from './run';
-export type {
-  GenerateOptions,
-  PipelineEvent,
-  ResumeOptions,
-  RunResult,
-} from './types';
+export { createGenerateWorkflow } from './useCase';
+export type { RunResult, WorkflowPorts } from './types';

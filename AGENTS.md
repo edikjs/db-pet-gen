@@ -16,24 +16,41 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 
 ## Modules
 
+Ports and adapters: `src/workflows/` is the core (domain, application and
+ports), `src/cli/` is the driving adapter, `src/adapters/` holds driven
+adapters, and `src/index.ts` is the only composition root. Dependencies point
+inward: the core never imports `cli`, `adapters` or `config`. Cross-cutting
+helpers with no domain meaning live in the neutral `src/shared/` module, which
+every layer may import; keep domain rules in the core instead.
+
+- `src/shared/` — generic diagnostics (`redact`, `errorMessage`,
+  `reportDiagnostic`) usable by config, CLI, adapters and the core.
+- `src/workflows/ports/` — inbound use case and outbound port interfaces.
+- `src/workflows/generate/domain/` — checked data schemas, run manifest,
+  artifact paths and integrity rules.
+- `src/workflows/generate/rules/` — SQL and Markdown validation:
+  `node-sql-parser` for model-written DDL and operations, `remark` for
+  Markdown.
+- `src/workflows/generate/render/` — seed SQL, operations SQL and ER source
+  rendered from checked data; the diagram is parsed with Mermaid.
+- `src/workflows/generate/stages/` — one slice per stage: prompt, deterministic
+  verifier and rendering or publication.
+- `src/workflows/generate/pipeline/` — LangGraph wiring and state schema.
+- `src/workflows/generate/useCase.ts`, `journal.ts` — first run and resume over
+  the ports; run-state transitions stay pure in the domain.
+- `src/adapters/llm/` — OpenAI-compatible chat transport, structured JSON
+  retries and rate limits; implements `ModelPort`.
+- `src/adapters/run-store/` — per-run workspace, manifest, JSONL events,
+  SQLite checkpoints and lock; implements `RunStorePort` and `CheckpointPort`.
+- `src/adapters/artifacts/` — writes checked files into the run workspace.
+- `src/adapters/observability/` — stage tracing; implements `TracePort`. Keep backend SDK code in `providers/<name>/` (e.g. `providers/phoenix/`); never attach prompts, completions or provider diagnostics.
+- `src/adapters/testing/` — network-free fake model and valid fixture.
+- `src/cli/` — Commander driving adapter; calls the `GenerateWorkflow` port.
 - `src/config/` — validated model/run/tracing config from `.env`.
-- `src/llm/` — OpenAI-compatible chat model and structured JSON retries.
-- `src/shared/schemas/` — shared types and schemas.
-- `src/shared/validators/` — SQL, Mermaid and Markdown validation.
-- `src/shared/utils/` — shared error helpers.
-- `src/workflows/generate/` — LangGraph stages: design, examples, judge and
-  publish; run entry and resume. Deterministic checks live in each model stage's
-  verifier; `prompts.ts` and `artifacts.ts` hold the instructions and output paths.
-- `src/workflows/generate/lifecycle/` — per-run manifest, JSONL events and
-  SQLite checkpoints.
-- `src/io/workspace.ts` — run paths. Validation lives in `src/shared/validators/`:
-  `node-sql-parser` for model-written DDL and operations, and `remark` for
-  Markdown. `src/workflows/generate/renderAssets.ts` renders seed SQL, operations SQL and ER source
-  from checked data and parses the diagram with Mermaid. A separate model stage reviews all
-  artifacts against the checked data.
-- `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
-- `src/adapters/observability/` — provider-neutral stage timing and status. Keep backend SDK code in `providers/<name>/` (e.g. `providers/phoenix/`); never attach prompts, completions or provider diagnostics.
-- `src/test-support/fixtures/` — network-free fake model and valid fixture.
+- `src/index.ts` — builds the adapters and injects them into the use case and CLI.
+
+A separate model stage reviews all generated artifacts against the checked
+data.
 
 Before implementing a common concern (parsing, validation, collections,
 redaction, and similar), check npm first. Prefer a popular, well-maintained

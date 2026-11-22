@@ -1,12 +1,6 @@
 import { buildProgram, main } from './run';
-import type { RunResult } from '../workflows/generate';
-import { loadConfig } from '../config';
+import type { GenerateWorkflow, RunResult } from '../workflows';
 
-const config = loadConfig({
-  LLM_PROVIDER: 'openrouter',
-  LLM_MODEL: 'fixture',
-  LLM_API_KEY: 'test-key',
-});
 const result: RunResult = {
   runId: 'a-run',
   workspace: '/tmp/a-run',
@@ -18,21 +12,28 @@ const result: RunResult = {
   },
 };
 
+function fakeWorkflow(
+  overrides: Partial<GenerateWorkflow> = {},
+): GenerateWorkflow & { generate: jest.Mock; resume: jest.Mock } {
+  return {
+    generate: jest.fn(async () => result),
+    resume: jest.fn(async () => result),
+    ...overrides,
+  } as GenerateWorkflow & { generate: jest.Mock; resume: jest.Mock };
+}
+
 describe('topic-only CLI', () => {
-  it('passes only the topic while loading the configured model from the environment', async () => {
+  it('passes only the topic to the generation port', async () => {
     const output: string[] = [];
-    const load = jest.fn(() => config);
-    const generate = jest.fn(async () => result);
+    const workflow = fakeWorkflow();
     const code = await main(['node', 'cli', 'generate', 'Pet records'], {
-      load,
-      generate,
+      workflow,
       write: (line) => output.push(line),
       error: () => undefined,
     });
     expect(code).toBe(0);
-    expect(load).toHaveBeenCalledWith();
-    expect(generate).toHaveBeenCalledWith(
-      expect.objectContaining({ topic: 'Pet records', config }),
+    expect(workflow.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ topic: 'Pet records' }),
     );
     expect(output.join('\n')).toContain('README.md');
   });
@@ -51,26 +52,26 @@ describe('topic-only CLI', () => {
   });
 
   it('runs resume by id and gives a nonzero result on failure', async () => {
-    const resume = jest.fn(async () => result);
+    const workflow = fakeWorkflow();
     expect(
       await main(['node', 'cli', 'resume', 'a-run'], {
-        load: () => config,
-        resume,
+        workflow,
         write: () => undefined,
         error: () => undefined,
       }),
     ).toBe(0);
-    expect(resume).toHaveBeenCalledWith(
+    expect(workflow.resume).toHaveBeenCalledWith(
       expect.objectContaining({ runId: 'a-run' }),
     );
 
     const errors: string[] = [];
     expect(
       await main(['node', 'cli', 'generate', 'Pet records'], {
-        load: () => config,
-        generate: async () => {
-          throw new Error('provider unavailable');
-        },
+        workflow: fakeWorkflow({
+          generate: async () => {
+            throw new Error('provider unavailable');
+          },
+        }),
         error: (line) => errors.push(line),
       }),
     ).toBe(1);
@@ -81,10 +82,11 @@ describe('topic-only CLI', () => {
     const errors: string[] = [];
     expect(
       await main(['node', 'cli', 'resume', 'a-run'], {
-        load: () => config,
-        resume: async () => {
-          throw new Error('request rejected with sk-private1234567890abcdef');
-        },
+        workflow: fakeWorkflow({
+          resume: async () => {
+            throw new Error('request rejected with sk-private1234567890abcdef');
+          },
+        }),
         error: (line) => errors.push(line),
       }),
     ).toBe(1);

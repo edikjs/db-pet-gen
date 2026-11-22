@@ -556,11 +556,12 @@ Phoenix uses <http://localhost:6006>; the Docker service is optional. The
 generator exports stage names, durations and success/failure status. It never
 attaches model inputs, outputs, credentials or provider error text to spans.
 
-To plug in a different backend, pass `createObservabilityProvider` to `runGenerate`
-or `resumeRun`. The factory creates one provider per run and takes precedence over
-`OBSERVABILITY_PROVIDER`. Its `startStage(name)` returns a callback that receives
-`'ok'` or `'error'`; `shutdown()` flushes the provider when the run ends.
-The built-in Phoenix implementation lives in `src/adapters/observability/providers/phoenix/`.
+To plug in a different backend, pass a provider factory as the second argument
+of `createTraceAdapter` in `src/index.ts`. The factory creates one provider per
+run and takes precedence over `OBSERVABILITY_PROVIDER`. Its `startStage(name)`
+returns a callback that receives `'ok'` or `'error'`; `shutdown()` flushes the
+provider when the run ends. The built-in Phoenix implementation lives in
+`src/adapters/observability/providers/phoenix/`.
 
 ```sh
 npm run build
@@ -577,35 +578,35 @@ responses and need no network or database.
 
 ## Source layout
 
+The layout follows ports and adapters. `src/workflows/` is the core and owns
+the use case, the domain and the port interfaces; `src/cli/` is the driving
+adapter; `src/adapters/` holds the driven adapters; `src/index.ts` is the
+composition root that wires them together. Generic cross-cutting helpers with
+no domain meaning live in the neutral `src/shared/` module.
+
 ```text
 src/
   cli/                      Commander commands and terminal progress
   config/
     env.ts                  Builds AppConfig from validated environment values
     env.schema.ts           Environment variable schema
-  llm/                      Provider client, rate limits and validated JSON requests
-  shared/
-    schemas/                Shared types and schemas
-    validators/
-      sql/                  DDL and operation validation
-      markdown/             README validation, including the ER fence
-    utils/                  Shared error helpers
-  workflows/generate/
-    lifecycle/
-      manifest.schema.ts    Run manifest schema and type
-      runState.ts           Manifest writes, event log and recorder
-      runCheckpointer.ts    SQLite checkpoints
-    artifacts.ts            Generated paths and their source data
-    graph.ts                Generation stages
-    renderAssets.ts         Render the ER diagram and seed SQL from checked data
-    pipelineState.schema.ts LangGraph state schema
-    prompts.ts              Stage instructions
-    run.ts                  First run and resume
-  io/
-    workspace.ts            Per-run paths
-  adapters/observability/   Stage tracing and pluggable providers
-  test-support/
-    fixtures/               Offline fixture and fake model
+  shared/                   Generic diagnostics (redact, error helpers)
+  workflows/
+    ports/                  Inbound use case and outbound port interfaces
+    generate/
+      domain/               Checked data schemas, run manifest and paths
+      rules/                DDL, operation and README validation
+      render/               ER diagram, seed SQL and operations SQL renderers
+      stages/               Prompt, verifier and output for each stage
+      pipeline/             LangGraph wiring and state schema
+      useCase.ts            First run and resume
+      journal.ts            Run-state transitions over the ports
+  adapters/
+    llm/                    Provider client, rate limits, validated JSON requests
+    run-store/              Workspace, manifest, events, checkpoints and lock
+    artifacts/              Writes the checked files into a run
+    observability/          Stage tracing and pluggable providers
+    testing/                Offline fixture and fake model
 ```
 
 Each module has an `index.ts` barrel and colocated tests.
