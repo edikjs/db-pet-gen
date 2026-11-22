@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AIMessage } from '@langchain/core/messages';
 import mermaid from 'mermaid';
-import { design, diagram, examples, FixtureModel } from '../../test-support';
+import {
+  design,
+  diagram,
+  examples,
+  FixtureModel,
+  seedSql,
+} from '../../test-support';
 import { buildPipeline, GRAPH_VERSION } from './graph';
 import type { PipelineEvent } from './types';
 
@@ -31,9 +37,6 @@ describe('generation graph', () => {
     sample.tables[1].rows.forEach((row) => {
       row.id = row.owner_id;
     });
-    sample.seedSql = sample.seedSql
-      .replace('(10,', '(1,')
-      .replace('(11,', '(2,');
     sample.readme = sample.readme.replace(diagram, expected);
     const workspace = await mkdtemp(join(tmpdir(), 'db-pet-graph-'));
     try {
@@ -85,10 +88,9 @@ describe('generation graph', () => {
       parser.mockRestore();
     }
   });
-  it('rejects orphan rows before review even when the INSERT matches the seed data', async () => {
+  it('rejects orphan rows before review', async () => {
     const invalid = structuredClone(examples);
     invalid.tables[1].rows[0].owner_id = 999;
-    invalid.seedSql = invalid.seedSql.replace('(10, 1,', '(10, 999,');
     const fixture = new FixtureModel();
     const workspace = await mkdtemp(join(tmpdir(), 'db-pet-graph-'));
     try {
@@ -127,13 +129,14 @@ describe('generation graph', () => {
       ['judgeStage', 'publishStage'],
       ['publishStage', '__end__'],
     ]);
-    expect(GRAPH_VERSION).toBe(12);
+    expect(GRAPH_VERSION).toBe(13);
   });
 
   it('asks the model for each generation stage and reports every stage', async () => {
     const workspace = await mkdtemp(join(tmpdir(), 'db-pet-graph-'));
     try {
       const model = new FixtureModel();
+      const calls = jest.spyOn(model, 'invoke');
       const events: PipelineEvent[] = [];
       const pipeline = buildPipeline({
         model,
@@ -148,6 +151,12 @@ describe('generation graph', () => {
         examples: null,
       });
       expect(model.calls).toEqual(['design', 'examples', 'judge']);
+      expect(
+        JSON.parse(String(calls.mock.calls[2][0][1].content)).examples.seedSql,
+      ).toBe(seedSql);
+      expect(
+        await readFile(join(workspace, 'assets/seed/seed.sql'), 'utf8'),
+      ).toBe(seedSql);
       expect(
         events
           .filter((event) => event.kind === 'stage_started')

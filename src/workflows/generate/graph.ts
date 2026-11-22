@@ -1,25 +1,24 @@
 import { StateGraph, START, END } from '@langchain/langgraph';
 import {
   DesignAnswerSchema,
-  ExamplesSchema,
+  ExamplesAnswerSchema,
   JudgeSchema,
   validateDdl,
   validateOperations,
   validateReadme,
-  validateSeedSql,
   validateSeedData,
   type Design,
-  type Examples,
+  type ExamplesAnswer,
   type Judge,
 } from '../../shared';
 import { requestJson } from '../../llm';
 import { publishArtifacts, ASSET_PATHS } from './artifacts';
 import { PipelineState } from './pipelineState.schema';
-import { renderDiagram } from './renderDiagram';
+import { renderDiagram, renderSeedSql } from './renderAssets';
 import { designPrompt, examplesPrompt, judgePrompt } from './prompts';
 import type { PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 12;
+export const GRAPH_VERSION = 13;
 
 async function stage<T>(
   { onEvent }: PipelineOptions,
@@ -46,10 +45,9 @@ function requireValue<T>(value: T | null, name: string): T {
   return value;
 }
 
-function verifyExamples(examples: Examples, design: Design): string[] {
+function verifyExamples(examples: ExamplesAnswer, design: Design): string[] {
   return [
     ...validateSeedData(examples, design),
-    ...validateSeedSql(examples.seedSql, examples),
     ...validateReadme(examples.readme, ASSET_PATHS, design.mermaid),
     ...validateOperations(examples, design),
   ];
@@ -80,14 +78,15 @@ export function buildPipeline(options: PipelineOptions) {
     .addNode('examplesStage', async (state) =>
       stage(options, 'examples', async () => {
         const design = requireValue(state.design, 'design');
+        const answer = await requestJson({
+          model,
+          stage: 'examples',
+          messages: examplesPrompt(state.topic, design),
+          schema: ExamplesAnswerSchema,
+          verify: (examples) => verifyExamples(examples, design),
+        });
         return {
-          examples: await requestJson({
-            model,
-            stage: 'examples',
-            messages: examplesPrompt(state.topic, design),
-            schema: ExamplesSchema,
-            verify: (examples) => verifyExamples(examples, design),
-          }),
+          examples: { ...answer, seedSql: renderSeedSql(design, answer) },
         };
       }),
     )

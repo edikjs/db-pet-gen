@@ -19,11 +19,15 @@ export const DesignSchema = DesignAnswerSchema.extend({
 export type Design = z.infer<typeof DesignSchema>;
 
 /** The checked examples data produced by the second model stage. */
-export const ExamplesSchema = SeedDataSchema.merge(OperationsSchema).extend({
-  /** INSERT script written by the model and checked against the seed rows. */
-  seedSql: z.string().min(1),
+export const ExamplesAnswerSchema = SeedDataSchema.merge(
+  OperationsSchema,
+).extend({
   /** README written by the model and checked by Markdown validation. */
   readme: z.string().min(1),
+});
+export type ExamplesAnswer = z.infer<typeof ExamplesAnswerSchema>;
+export const ExamplesSchema = ExamplesAnswerSchema.extend({
+  seedSql: z.string().min(1),
 });
 
 /** The model review that compares generated SQL with the checked data. */

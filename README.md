@@ -5,7 +5,7 @@ is a PostgreSQL-compatible SQL schema, seed data, a Mermaid ER diagram, and a
 comprehensive English `README.md` for the generated project.
 
 The generator is a **design and documentation tool**: it validates model-written SQL and Markdown
-and renders the ER diagram from the checked tables. Nothing is executed
+and renders the ER diagram and seed SQL from checked tables and rows. Nothing is executed
 against a database.
 
 ## Contents
@@ -174,7 +174,7 @@ deterministic code:
 ```mermaid
 flowchart LR
     T(["Topic"]) --> D["design<br/>LLM: plan, tables and DDL; render ER"]
-    D --> X["examples<br/>LLM: seed SQL, operations and README"]
+    D --> X["examples<br/>LLM: rows, operations and README; render seed SQL"]
     X --> J["judge<br/>LLM: compare artifacts with design"]
     J --> P["publish<br/>write artifacts and qa-report"]
     P --> Z(["Run complete"])
@@ -183,12 +183,12 @@ flowchart LR
     J -. on error .-> F
 ```
 
-| Stage      | Kind              | What it produces and checks                                                                     |
-| ---------- | ----------------- | ----------------------------------------------------------------------------------------------- |
-| `design`   | model, 2 attempts | Checks the tables and PostgreSQL DDL, then renders and parses the Mermaid ER source             |
-| `examples` | model, 2 attempts | `Examples` JSON; seed SQL, operations, README structure and links are checked before acceptance |
-| `judge`    | model, 2 attempts | `Judge` JSON; must report `matches: true` with no problems, or the answer is corrected          |
-| `publish`  | deterministic     | Writes the four deliverables from the checked data plus a passing `qa-report.json`              |
+| Stage      | Kind              | What it produces and checks                                                            |
+| ---------- | ----------------- | -------------------------------------------------------------------------------------- |
+| `design`   | model, 2 attempts | Checks the tables and PostgreSQL DDL, then renders and parses the Mermaid ER source    |
+| `examples` | model, 2 attempts | Checks seed rows, operations, README structure and links, then renders seed SQL        |
+| `judge`    | model, 2 attempts | `Judge` JSON; must report `matches: true` with no problems, or the answer is corrected |
+| `publish`  | deterministic     | Writes the four deliverables from the checked data plus a passing `qa-report.json`     |
 
 An unusable answer is sent back to the model once with the exact rejection and a
 request to return matching JSON. The client owns transport retries; provider
@@ -204,7 +204,7 @@ succeed.
 | Object     | Shape and constraints                                                                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Design`   | `title` (≥3 chars), `summary` (≥20 chars), `assumptions` (1–6 strings), `features` (2–8 strings), `tables` (2–8), `ddl` (string); the generator adds `mermaid` |
-| `Examples` | `tables` (every design table once, in order, 2–5 rows each), `operations` (2–12), `seedSql` (string), `readme` (string)                                        |
+| `Examples` | `tables` (every design table once, in order, 2–5 rows each), `operations` (2–12), `readme` (string); the generator adds `seedSql`                              |
 | `Judge`    | `matches` (boolean), `problems` (array of strings)                                                                                                             |
 
 A table has a `name`, `comment`, `checks` (always empty), `indexes` and at least
@@ -422,18 +422,17 @@ binding before the statements can run in `psql`.
 
 ## Validation rules
 
-The model supplies SQL and Markdown. The generator renders Mermaid from checked
+The model supplies DDL, operation statements and Markdown. The generator renders Mermaid from checked
 tables and parses it before checkpointing the design. A renderer failure stops the stage
 without a corrective model turn. Zod checks seed rows against the designed columns and foreign-key
 values. remark parses the README; micromark supplies the tokens used to check
 that every code fence closes. Beyond syntax and allowed links, the generator compares parsed DDL
-table and column names and base types to the design, literal INSERT rows to the
-structured seed data, and the single embedded ER diagram to the checked asset.
+table and column names and base types to the design, and the single embedded ER diagram to the checked asset.
 
 | Artifact       | Library           | Checks                                                                                                                                                                                  |
 | -------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DDL            | `node-sql-parser` | PostgreSQL dialect; only `create table` and `create index` statements                                                                                                                   |
-| Seed SQL       | `node-sql-parser` | PostgreSQL dialect; only `insert` statements                                                                                                                                            |
+| Seed SQL       | `@pgsql/quotes`   | One multi-row `insert` per checked table, in design column order, with PostgreSQL string quoting                                                                                        |
 | Operations     | `node-sql-parser` | Exactly one `SELECT`/`INSERT`/`UPDATE`/`DELETE`; physical tables match the declared, unqualified design names; CTE names are local to their query; used `:params` match declared params |
 | ER source      | `mermaid`         | Official parser; `erDiagram` first; entities, column types and `PK`/`FK`/`UK` markers match the design; one line per FK                                                                 |
 | Project README | `remark`          | One title; all eight required sections; text fallback; inline Mermaid fence; no raw HTML or unclosed fences; local links                                                                |
@@ -570,7 +569,7 @@ src/
   shared/
     schemas/                Shared types and schemas
     validators/
-      sql/                  DDL, seed and operation validation
+      sql/                  DDL and operation validation
       markdown/             README validation, including the ER fence
     utils/                  Shared error helpers
   workflows/generate/
@@ -580,7 +579,7 @@ src/
       runCheckpointer.ts    SQLite checkpoints
     artifacts.ts            Generated paths and their source data
     graph.ts                Generation stages
-    renderDiagram.ts        Render and parse the ER diagram from checked tables
+    renderAssets.ts         Render the ER diagram and seed SQL from checked data
     pipelineState.schema.ts LangGraph state schema
     prompts.ts              Stage instructions
     run.ts                  First run and resume

@@ -29,10 +29,9 @@ ddl: one string of PostgreSQL DDL. Write one create table per design table using
 export function examplesPrompt(topic: string, design: Design) {
   return stageMessages(
     `STAGE:examples
-Create realistic sample data and useful data operations for the supplied topic and design. Return one English JSON object with tables (every design table in order, 2-5 rows each, valid keys and cross-table references), operations (2-12 useful pet-project data operations), seedSql and readme.
+Create realistic sample data and useful data operations for the supplied topic and design. Return one English JSON object with tables (every design table in order, 2-5 rows each, valid keys and cross-table references), operations (2-12 useful pet-project data operations) and readme.
 Each seed table: {"table":"<table name>","rows":[{"column":value}]}. Include every design column in every row, even nullable or defaulted columns. Respect non-null columns, primary keys, unique keys and foreign keys. INTEGER and NUMERIC values are JSON numbers; BOOLEAN values booleans; DATE/TIMESTAMP/TEXT/VARCHAR are strings. No SQL syntax in values.
 Each operation: {"name":"snake_case","title":"English description","tables":["table"],"parameters":["name"],"statement":"one SELECT, INSERT, UPDATE or DELETE statement"}. Named parameters are :name and need not be columns; each declared parameter must appear in the SQL, and the SQL must not use undeclared parameters. No semicolons inside the statement, no comments, no DDL. Mention every table listed in each operation, and no others.
-seedSql: one string with one INSERT per seed table in the same order, written as "insert into <table> (<columns>) values (<literals>), ...;". Use numbers unquoted, true/false for booleans, NULL for null, and single-quoted strings with doubled internal quotes. Use only the supplied row values; no comments, no ON CONFLICT, no RETURNING.
 readme: one string holding the complete project README with a top-level title and these level-two sections: ${README_SECTIONS.join(', ')}. Embed the exact checked Mermaid source in a single mermaid fence and include the "### ${README_FALLBACK}" subsection. Link only to ${ASSET_PATHS.join(', ')}; no raw HTML, external links or images.`,
     { topic, design },
   );

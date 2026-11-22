@@ -3,11 +3,17 @@ export { ProjectPlanSchema, type ProjectPlan } from './plan.schema';
 export {
   DesignAnswerSchema,
   DesignSchema,
+  ExamplesAnswerSchema,
   ExamplesSchema,
   JudgeSchema,
 } from './pipeline.schema';
 export { uniqueKeys } from './designIntegrity';
-export type { Design, Examples, Judge } from './pipeline.schema';
+export type {
+  Design,
+  Examples,
+  ExamplesAnswer,
+  Judge,
+} from './pipeline.schema';
 export {
   columnValues,
   DataModelSchema,

@@ -188,6 +188,8 @@ describe('a topic-only generation run', () => {
       JSON.stringify({ ...manifest, status: 'running', pid: process.pid }),
     );
     await rm(run.readmePath);
+    const seedPath = join(run.workspace, 'assets/seed/seed.sql');
+    await rm(seedPath);
     await writeFile(join(run.workspace, 'qa-report.json'), '{}');
     const model = new FixtureModel();
     await resumeRun({ runId: run.runId, config, model });
@@ -195,6 +197,7 @@ describe('a topic-only generation run', () => {
     expect(await readFile(run.readmePath, 'utf8')).toBe(
       run.state.examples?.readme,
     );
+    expect(await readFile(seedPath, 'utf8')).toBe(run.state.examples?.seedSql);
     expect(
       JSON.parse(await readFile(join(run.workspace, 'qa-report.json'), 'utf8')),
     ).toEqual({ verdict: 'pass' });

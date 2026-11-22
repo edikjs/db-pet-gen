@@ -1,48 +1,69 @@
+import { isEqual } from 'es-toolkit';
 import { Parser, type AST } from 'node-sql-parser';
+import { z } from 'zod';
+import type { DataModel } from '../../schemas';
 import { errorMessage } from '../../utils';
-import type { DataModel, SeedData } from '../../schemas';
-import { ddlDataIssues, seedDataIssues } from './artifactData';
 
 const parser = new Parser();
-const DIALECT = { database: 'Postgresql' } as const;
 
-/** The statement kind the parser actually accepted. */
-function kind(statement: AST): string {
-  return statement.type === 'create'
-    ? `create ${statement.keyword}`
-    : statement.type;
+// The PostgreSQL dialect differs from the parser's generic AST types.
+const column = z
+  .object({
+    resource: z.literal('column'),
+    column: z.object({
+      column: z.object({ expr: z.object({ value: z.string() }) }),
+    }),
+    definition: z.object({ dataType: z.string() }),
+  })
+  .transform((node) => ({
+    name: node.column.column.expr.value,
+    type: node.definition.dataType,
+  }));
+const table = z
+  .object({
+    keyword: z.literal('table'),
+    table: z.tuple([z.object({ db: z.null(), table: z.string() })]),
+    create_definitions: z.array(
+      z.union([column, z.object({ resource: z.literal('constraint') })]),
+    ),
+  })
+  .transform((node) => ({
+    name: node.table[0].table,
+    columns: node.create_definitions.filter((item) => 'name' in item),
+  }));
+
+function ddlDataIssues(statements: AST[], design: DataModel): string[] {
+  const parsed = z
+    .array(z.union([table, z.object({ keyword: z.literal('index') })]))
+    .safeParse(statements);
+  const expected = design.tables.map(({ name, columns }) => ({
+    name,
+    columns: columns.map(({ name, type }) => ({ name, type })),
+  }));
+  if (
+    parsed.success &&
+    isEqual(
+      parsed.data.filter((item) => 'name' in item),
+      expected,
+    )
+  )
+    return [];
+  return ['DDL tables, column names and types must match the design in order.'];
 }
 
-/** Parses SQL with the official library and checks only statement kinds. */
-function check(
-  sql: string,
-  label: string,
-  allowed: readonly string[],
-  compare: (statements: AST[]) => string[],
-): string[] {
-  try {
-    const ast = parser.astify(sql, DIALECT);
-    const statements = Array.isArray(ast) ? ast : [ast];
-    if (statements.length === 0)
-      return [`${label} must contain SQL statements.`];
-    return statements.every((statement) => allowed.includes(kind(statement)))
-      ? compare(statements)
-      : [`${label} may contain only ${allowed.join(' or ')}.`];
-  } catch (error) {
-    return [`Invalid ${label}: ${errorMessage(error)}`];
-  }
-}
-
-/** Checks that the model wrote parseable PostgreSQL DDL statements. */
 export function validateDdl(sql: string, design: DataModel): string[] {
-  return check(sql, 'DDL', ['create table', 'create index'], (ast) =>
-    ddlDataIssues(ast, design),
-  );
-}
-
-/** Checks that the model wrote parseable PostgreSQL INSERT statements. */
-export function validateSeedSql(sql: string, examples: SeedData): string[] {
-  return check(sql, 'seed SQL', ['insert'], (ast) =>
-    seedDataIssues(ast, examples),
-  );
+  try {
+    const ast = parser.astify(sql, { database: 'Postgresql' });
+    const statements = Array.isArray(ast) ? ast : [ast];
+    if (!statements.length) return ['DDL must contain SQL statements.'];
+    if (
+      !statements.every(
+        (s) => s.type === 'create' && ['table', 'index'].includes(s.keyword),
+      )
+    )
+      return ['DDL may contain only create table or create index.'];
+    return ddlDataIssues(statements, design);
+  } catch (error) {
+    return [`Invalid DDL: ${errorMessage(error)}`];
+  }
 }

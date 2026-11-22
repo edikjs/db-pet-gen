@@ -1,2 +1,2 @@
-export { validateDdl, validateSeedSql } from './validateSql';
+export { validateDdl } from './validateSql';
 export { validateOperations } from './validateOperations';

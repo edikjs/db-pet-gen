@@ -1,9 +1,12 @@
+import { QuoteUtils } from '@pgsql/quotes';
 import mermaid from 'mermaid';
 import {
   uniqueKeys,
   type DataColumn,
   type DataModel,
   type DataTable,
+  type SeedData,
+  type SeedValue,
 } from '../../shared';
 
 function attribute(column: DataColumn): string {
@@ -44,4 +47,24 @@ export async function renderDiagram({ tables }: DataModel): Promise<string> {
   ].join('\n');
   await mermaid.parse(source);
   return source;
+}
+
+function literal(value: SeedValue): string {
+  if (value === null) return 'NULL';
+  return typeof value === 'string'
+    ? QuoteUtils.formatEString(value)
+    : String(value);
+}
+
+/** Seed integrity guarantees table order, column names and literal types. */
+export function renderSeedSql(design: DataModel, seed: SeedData): string {
+  return design.tables
+    .map(({ name, columns }, i) => {
+      const fields = columns.map((c) => `"${c.name}"`).join(', ');
+      const tuples = seed.tables[i].rows.map(
+        (row) => `(${columns.map((c) => literal(row[c.name])).join(', ')})`,
+      );
+      return `insert into "${name}" (${fields}) values ${tuples.join(', ')};\n`;
+    })
+    .join('');
 }

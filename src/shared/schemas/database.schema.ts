@@ -1,3 +1,4 @@
+import { toUSVString } from 'node:util';
 import { QuoteUtils } from '@pgsql/quotes';
 import reservedIdentifiers from 'reserved-identifiers';
 import { z } from 'zod';
@@ -18,17 +19,24 @@ const Identifier = z
     'Identifier must be safe to render unquoted',
   );
 
+const pgText = z
+  .string()
+  .refine(
+    (s) => !s.includes('\0') && toUSVString(s) === s,
+    'Expected PostgreSQL text without NUL or unpaired surrogates.',
+  );
+
 export const columnValues = {
   INTEGER: z.int(),
   BIGINT: z.int(),
   SMALLINT: z.int(),
   REAL: z.number(),
   NUMERIC: z.number(),
-  TEXT: z.string(),
-  VARCHAR: z.string(),
+  TEXT: pgText,
+  VARCHAR: pgText,
   BOOLEAN: z.boolean(),
-  DATE: z.string(),
-  TIMESTAMP: z.string(),
+  DATE: pgText,
+  TIMESTAMP: pgText,
 };
 
 const DataColumnSchema = z

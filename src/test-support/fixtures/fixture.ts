@@ -3,7 +3,6 @@ import type { GenerationModel } from '../../llm';
 import type {
   DataModel,
   Design,
-  Examples,
   Judge,
   Operations,
   ProjectPlan,
@@ -288,10 +287,9 @@ const designAnswer = {
 };
 export const design: Design = { ...designAnswer, mermaid: diagram };
 
-export const examples: Examples = {
+export const examples = {
   ...seedData,
   ...operations,
-  seedSql,
   readme,
 };
 
