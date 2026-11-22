@@ -34,7 +34,7 @@ npm install
 cp .env.example .env
 # Edit LLM_PROVIDER, LLM_MODEL and LLM_API_KEY in .env.
 npm run build
-npm start -- generate --topic "Pet records"
+npm start -- generate "Pet records"
 ```
 
 The command prints the run id and the workspace path; the generated project is
@@ -46,7 +46,7 @@ A topic is the only input. For example (the run shown below is one of the
 checked-in example runs):
 
 ```sh
-npm start -- generate --topic "Public library database"
+npm start -- generate "Public library database"
 ```
 
 Terminal output (progress goes to stderr, the result to stdout; on a TTY the
@@ -149,16 +149,16 @@ and start a new run.
 ## CLI reference
 
 ```text
-db-pet-gen generate --topic <topic>   Generate a project from one topic
-db-pet-gen resume <run-id>            Retry a failed or interrupted run
-db-pet-gen --help                     Show help
-db-pet-gen --version                  Show the version (1.0.0)
+db-pet-gen generate <topic>   Generate a project from one topic
+db-pet-gen resume <run-id>    Retry a failed or interrupted run
+db-pet-gen --help             Show help
+db-pet-gen --version          Show the version (1.0.0)
 ```
 
 With `npm start --`, pass the arguments after `--`:
 
 ```sh
-npm start -- generate --topic "Public library database"
+npm start -- generate "Public library database"
 npm start -- resume 20261121-092452-public-library-database-018b02
 ```
 
@@ -548,7 +548,7 @@ tracing is optional:
 ```sh
 npm run phoenix:up
 # Set OBSERVABILITY_PROVIDER=phoenix in .env
-npm start -- generate --topic "Library lending"
+npm start -- generate "Library lending"
 npm run phoenix:down
 ```
 

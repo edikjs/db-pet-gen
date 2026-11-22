@@ -8,7 +8,7 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 
 - `npm run build` — compile `src/` into `dist/` (run before `npm start`).
 - `npm run typecheck` — check production code and colocated test typings.
-- `npm start -- generate --topic "..."` — provider and model come from `.env`.
+- `npm start -- generate "..."` — provider and model come from `.env`.
 - `npm start -- resume <run-id>` — retry an interrupted/failed run with the
   original model settings in `.env`.
 - `npm run lint:check && npm run format:check && npm test` — verification.

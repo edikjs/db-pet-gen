@@ -58,14 +58,14 @@ export function buildProgram(dependencies: CliDependencies = {}): Command {
   program
     .command('generate')
     .description('Generate a project from one topic')
-    .requiredOption('-t, --topic <topic>', 'the domain to generate')
-    .action(async (options: { topic: string }) => {
+    .argument('<topic>', 'the domain to generate')
+    .action(async (topic: string) => {
       const config = load();
       const result = await runWithProgress(
         'Preparing generation...',
         (onProgress) =>
           generate({
-            topic: options.topic,
+            topic,
             config,
             onRunStarted: (runId, workspace) =>
               error(`Run started: ${runId}\nWorkspace: ${workspace}`),

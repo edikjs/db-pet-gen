@@ -23,15 +23,12 @@ describe('topic-only CLI', () => {
     const output: string[] = [];
     const load = jest.fn(() => config);
     const generate = jest.fn(async () => result);
-    const code = await main(
-      ['node', 'cli', 'generate', '--topic', 'Pet records'],
-      {
-        load,
-        generate,
-        write: (line) => output.push(line),
-        error: () => undefined,
-      },
-    );
+    const code = await main(['node', 'cli', 'generate', 'Pet records'], {
+      load,
+      generate,
+      write: (line) => output.push(line),
+      error: () => undefined,
+    });
     expect(code).toBe(0);
     expect(load).toHaveBeenCalledWith();
     expect(generate).toHaveBeenCalledWith(
@@ -69,7 +66,7 @@ describe('topic-only CLI', () => {
 
     const errors: string[] = [];
     expect(
-      await main(['node', 'cli', 'generate', '-t', 'Pet records'], {
+      await main(['node', 'cli', 'generate', 'Pet records'], {
         load: () => config,
         generate: async () => {
           throw new Error('provider unavailable');
