@@ -439,11 +439,11 @@ tables and parses it before checkpointing the design. A renderer failure stops t
 without a corrective model turn. Zod checks seed rows against the designed columns and foreign-key
 values. remark parses the README; micromark supplies the tokens used to check
 that every code fence closes. Beyond syntax and allowed links, the generator compares parsed DDL
-table and column names and base types to the design, and the single embedded ER diagram to the checked asset.
+table and column names and declared types (including `varchar(length)`) to the design, and the single embedded ER diagram to the checked asset.
 
 | Artifact       | Library           | Checks                                                                                                                                                                                  |
 | -------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DDL            | `node-sql-parser` | PostgreSQL dialect; only `create table` and `create index` statements                                                                                                                   |
+| DDL            | `node-sql-parser` | PostgreSQL dialect; only `create table` and `create index` statements; exact declared types, with `varchar(length)` as the only modifier                                                |
 | Seed SQL       | `@pgsql/quotes`   | One multi-row `insert` per checked table, in design column order, with PostgreSQL string quoting                                                                                        |
 | Operations     | `node-sql-parser` | Exactly one `SELECT`/`INSERT`/`UPDATE`/`DELETE`; physical tables match the declared, unqualified design names; CTE names are local to their query; used `:params` match declared params |
 | ER source      | `mermaid`         | Official parser; `erDiagram` first; entities, column types and `PK`/`FK`/`UK` markers match the design; one line per FK                                                                 |

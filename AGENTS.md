@@ -79,7 +79,8 @@ checked design and seed rows. Nothing is executed — do not claim operations we
 run against PostgreSQL.
 
 - In addition to syntax, structure and allowed links, compare DDL tables/columns
-  and base types and the README's ER copy against the checked data.
+  and declared types (`varchar(length)` is the only modifier) and the README's
+  ER copy against the checked data.
   The judge handles the remaining semantic review. A seed or diagram render or diagram parse
   failure is a generator error and must not consume a corrective model turn.
 - Validate design keys and references before accepting a design. Seed each

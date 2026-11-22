@@ -26,3 +26,20 @@ it('keeps untrusted input in a separate JSON message for every stage', () => {
     expect(JSON.parse(input.content)).toEqual(expected);
   }
 });
+
+it('makes the deterministic DDL type contract explicit to design and judge', () => {
+  const designInstructions = designPrompt('topic')[0].content;
+  const judgeInstructions = judgePrompt('topic', design, {
+    ...examples,
+    seedSql,
+    operationsSql,
+  })[0].content;
+
+  expect(designInstructions).toContain('varchar(length)');
+  expect(designInstructions).toContain(
+    'no precision, scale or other modifiers',
+  );
+  expect(judgeInstructions).toContain(
+    'deterministic validation is authoritative',
+  );
+});

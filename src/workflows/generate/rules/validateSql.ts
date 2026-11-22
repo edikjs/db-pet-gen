@@ -2,23 +2,43 @@ import { isEqual } from 'es-toolkit';
 import { Parser, type AST } from 'node-sql-parser';
 import { z } from 'zod';
 import { errorMessage } from '../../../shared';
-import type { DataModel } from '../domain';
+import type { DataColumn, DataModel } from '../domain';
 
 const parser = new Parser();
 
 // The PostgreSQL dialect differs from the parser's generic AST types.
+const definition = z
+  .object({
+    dataType: z.string(),
+    length: z.number().int().positive().nullable().optional(),
+    scale: z.number().int().nonnegative().nullable().optional(),
+    parentheses: z.literal(true).optional(),
+    suffix: z.tuple([]).optional(),
+  })
+  .strict()
+  .transform(({ dataType, length, scale }) => {
+    const modifiers = [length, scale].filter(
+      (value) => value !== null && value !== undefined,
+    );
+    return modifiers.length ? `${dataType}(${modifiers.join(',')})` : dataType;
+  });
 const column = z
   .object({
     resource: z.literal('column'),
     column: z.object({
       column: z.object({ expr: z.object({ value: z.string() }) }),
     }),
-    definition: z.object({ dataType: z.string() }),
+    definition,
   })
   .transform((node) => ({
     name: node.column.column.expr.value,
-    type: node.definition.dataType,
+    type: node.definition,
   }));
+
+function declaredType({ type, length }: DataColumn): string {
+  return type === 'VARCHAR' && length !== null ? `${type}(${length})` : type;
+}
+
 const table = z
   .object({
     keyword: z.literal('table'),
@@ -38,7 +58,10 @@ function ddlDataIssues(statements: AST[], design: DataModel): string[] {
     .safeParse(statements);
   const expected = design.tables.map(({ name, columns }) => ({
     name,
-    columns: columns.map(({ name, type }) => ({ name, type })),
+    columns: columns.map((column) => ({
+      name: column.name,
+      type: declaredType(column),
+    })),
   }));
   if (
     parsed.success &&

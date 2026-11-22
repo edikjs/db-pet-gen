@@ -23,4 +23,30 @@ describe('SQL validation', () => {
       [],
     );
   });
+
+  it('rejects numeric precision and scale that the design does not declare', () => {
+    const model = structuredClone(dataModel);
+    model.tables[0].columns[1].type = 'NUMERIC';
+    const plain = ddl.replace('"name" text', '"name" numeric');
+    expect(validateDdl(plain, model)).toEqual([]);
+    expect(
+      validateDdl(
+        plain.replace('"name" numeric', '"name" numeric(10,2)'),
+        model,
+      ),
+    ).not.toEqual([]);
+  });
+
+  it('rejects a varchar length that differs from the declared length', () => {
+    const model = structuredClone(dataModel);
+    Object.assign(model.tables[0].columns[1], {
+      type: 'VARCHAR',
+      length: 3,
+    });
+    const sql = ddl.replace('"name" text', '"name" varchar(3)');
+    expect(validateDdl(sql, model)).toEqual([]);
+    expect(
+      validateDdl(sql.replace('varchar(3)', 'varchar(50)'), model),
+    ).not.toEqual([]);
+  });
 });
