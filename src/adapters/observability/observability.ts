@@ -1,34 +1,20 @@
-import { register, SpanStatusCode } from '@arizeai/phoenix-otel';
-import type { ObservabilityConfig, ObservabilityHandle } from './types';
+import type { ObservabilityProvider, ObservabilityHandle } from './types';
 
-export function initObservability(
-  config: ObservabilityConfig,
-): ObservabilityHandle | undefined {
-  if (config.provider !== 'phoenix') {
-    return undefined;
-  }
-
-  const provider = register({
-    projectName: config.projectName,
-    url: config.endpoint,
-    batch: true,
-    global: false,
-  });
-  const tracer = provider.getTracer('db-pet-gen');
-  const spans = new Map<string, ReturnType<typeof tracer.startSpan>>();
+export function observeStages(
+  provider: ObservabilityProvider,
+): ObservabilityHandle {
+  const active = new Map<
+    string,
+    ReturnType<ObservabilityProvider['startStage']>
+  >();
   return {
     stageEvent(stage, kind) {
       if (kind === 'stage_started') {
-        spans.set(stage, tracer.startSpan(stage));
+        active.set(stage, provider.startStage(stage));
         return;
       }
-      const span = spans.get(stage);
-      span?.setStatus({
-        code:
-          kind === 'stage_failed' ? SpanStatusCode.ERROR : SpanStatusCode.OK,
-      });
-      span?.end();
-      spans.delete(stage);
+      active.get(stage)?.(kind === 'stage_failed' ? 'error' : 'ok');
+      active.delete(stage);
     },
     shutdown: () => provider.shutdown(),
   };

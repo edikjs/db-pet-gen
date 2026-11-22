@@ -1,7 +1,6 @@
-export interface ObservabilityConfig {
-  provider: 'none' | 'phoenix';
-  endpoint: string;
-  projectName: string;
+export interface ObservabilityProvider {
+  startStage(stage: string): (status: 'ok' | 'error') => void;
+  shutdown(): Promise<void>;
 }
 
 export interface ObservabilityHandle {

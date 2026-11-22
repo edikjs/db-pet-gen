@@ -1,42 +1,36 @@
-import { register, SpanStatusCode } from '@arizeai/phoenix-otel';
-import { initObservability } from './observability';
-import type { ObservabilityConfig } from './types';
+import { initObservability } from './index';
 
-jest.mock('@arizeai/phoenix-otel', () => ({
-  register: jest.fn(),
-  SpanStatusCode: { ERROR: 2, OK: 1 },
-}));
-const config: ObservabilityConfig = {
-  provider: 'phoenix',
+const config = {
+  provider: 'none',
   endpoint: 'http://localhost:6006',
-  projectName: 'test-project',
-};
+  projectName: 'test',
+} as const;
 
-it('does not activate tracing when disabled', () => {
-  expect(initObservability({ ...config, provider: 'none' })).toBeUndefined();
-  expect(register).not.toHaveBeenCalled();
+it('leaves tracing disabled by default', () => {
+  expect(initObservability(config)).toBeUndefined();
 });
 
-it('only exports stage timing and status through a private tracer', async () => {
-  const span = { end: jest.fn(), setStatus: jest.fn() };
-  const startSpan = jest.fn(() => span);
+it('routes stage outcomes and shutdown to an injected provider', async () => {
+  const design = jest.fn();
+  const examples = jest.fn();
+  const startStage = jest
+    .fn()
+    .mockReturnValueOnce(design)
+    .mockReturnValueOnce(examples);
   const shutdown = jest.fn(async () => undefined);
-  jest.mocked(register).mockReturnValue({
-    getTracer: () => ({ startSpan }),
-    shutdown,
-  } as unknown as ReturnType<typeof register>);
-  const handle = initObservability(config)!;
+  const handle = initObservability(config, () => ({ startStage, shutdown }))!;
+  handle.stageEvent('design', 'stage_started');
   handle.stageEvent('examples', 'stage_started');
   handle.stageEvent('examples', 'stage_failed');
+  handle.stageEvent('design', 'stage_finished');
   await handle.shutdown();
-  expect(register).toHaveBeenCalledWith({
-    url: config.endpoint,
-    projectName: config.projectName,
-    batch: true,
-    global: false,
-  });
-  expect(startSpan.mock.calls).toEqual([['examples']]);
-  expect(span.setStatus.mock.calls).toEqual([[{ code: SpanStatusCode.ERROR }]]);
-  expect(span.end).toHaveBeenCalledTimes(1);
+  expect(startStage.mock.calls).toEqual([['design'], ['examples']]);
+  expect(design.mock.calls).toEqual([['ok']]);
+  expect(examples.mock.calls).toEqual([['error']]);
   expect(shutdown).toHaveBeenCalledTimes(1);
+});
+
+it('can open and shut down the configured Phoenix SDK', async () => {
+  const handle = initObservability({ ...config, provider: 'phoenix' })!;
+  await expect(handle.shutdown()).resolves.toBeUndefined();
 });

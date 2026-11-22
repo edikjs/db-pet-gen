@@ -544,6 +544,12 @@ Phoenix uses <http://localhost:6006>; the Docker service is optional. The
 generator exports stage names, durations and success/failure status. It never
 attaches model inputs, outputs, credentials or provider error text to spans.
 
+To plug in a different backend, pass `createObservabilityProvider` to `runGenerate`
+or `resumeRun`. The factory creates one provider per run and takes precedence over
+`OBSERVABILITY_PROVIDER`. Its `startStage(name)` returns a callback that receives
+`'ok'` or `'error'`; `shutdown()` flushes the provider when the run ends.
+The built-in Phoenix implementation lives in `src/adapters/observability/providers/phoenix/`.
+
 ```sh
 npm run build
 npm run typecheck
@@ -585,7 +591,7 @@ src/
     run.ts                  First run and resume
   io/
     workspace.ts            Per-run paths
-  adapters/observability/   Optional Phoenix tracing
+  adapters/observability/   Stage tracing and pluggable providers
   test-support/
     fixtures/               Offline fixture and fake model
 ```

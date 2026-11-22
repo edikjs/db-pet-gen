@@ -86,7 +86,10 @@ async function execute(
   let observability: ReturnType<typeof initObservability>;
   try {
     handle = openRunCheckpointer(recorder.workspace);
-    observability = initObservability(options.config.observability);
+    observability = initObservability(
+      options.config.observability,
+      options.createObservabilityProvider,
+    );
     const graph = buildPipeline({
       model: generationClient(options.config.chat, options.model),
       workspace: recorder.workspace,

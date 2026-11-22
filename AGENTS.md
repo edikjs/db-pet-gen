@@ -32,7 +32,7 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
   from checked data and parses the diagram with Mermaid. A separate model stage reviews all
   artifacts against the checked data.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
-- `src/adapters/observability/` — optional Phoenix stage timing and status; never attach prompts, completions or provider diagnostics.
+- `src/adapters/observability/` — provider-neutral stage timing and status. Keep backend SDK code in `providers/<name>/` (e.g. `providers/phoenix/`); never attach prompts, completions or provider diagnostics.
 - `src/test-support/fixtures/` — network-free fake model and valid fixture.
 
 Before implementing a common concern (parsing, validation, collections,

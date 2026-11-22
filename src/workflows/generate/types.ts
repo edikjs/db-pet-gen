@@ -1,3 +1,4 @@
+import type { ObservabilityProvider } from '../../adapters/observability';
 import type { AppConfig } from '../../config';
 import type { GenerationModel } from '../../llm';
 import type { PipelineResult } from './pipelineState.schema';
@@ -24,6 +25,7 @@ export interface RunResult {
 export interface RunOptions {
   config: AppConfig;
   model?: GenerationModel;
+  createObservabilityProvider?: () => ObservabilityProvider;
   onProgress?: (event: PipelineEvent) => void;
 }
 
