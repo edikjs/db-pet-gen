@@ -161,6 +161,13 @@ export const seedSql = `insert into "owners" ("id", "name") values (1, 'Ada'), (
 insert into "pets" ("id", "owner_id", "name") values (10, 1, 'Milo'), (11, 2, 'Poppy');
 `;
 
+export const operationsSql = `-- list_pets_by_owner
+SELECT id, owner_id, name FROM pets WHERE owner_id = :owner_id;
+
+-- remove_pet
+DELETE FROM pets WHERE id = :id;
+`;
+
 export const readme = `# Pet records
 
 ## Project overview
@@ -259,6 +266,8 @@ psql -v ON_ERROR_STOP=1 -d db_pet_gen_demo -f assets/seed/seed.sql
 \`\`\`
 
 ## Operations and queries
+
+See the [operation SQL](assets/operations/operations.sql).
 
 Named parameters such as \`:owner_id\` require application binding before running in \`psql\`.
 

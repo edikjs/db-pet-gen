@@ -81,6 +81,7 @@ artifacts/runs/<run-id>/
   assets/
     ddl/schema.sql             PostgreSQL-compatible DDL
     seed/seed.sql              Sample data
+    operations/operations.sql  Named SQL examples from “Operations and queries”
     diagrams/er.mmd            Mermaid ER source (also embedded in README)
   run.json                     Status, model identity, current stage
   events.jsonl                 Timestamped stage event log
@@ -174,7 +175,7 @@ deterministic code:
 ```mermaid
 flowchart LR
     T(["Topic"]) --> D["design<br/>LLM: plan, tables and DDL; render ER"]
-    D --> X["examples<br/>LLM: rows, operations and README; render seed SQL"]
+    D --> X["examples<br/>LLM: rows, operations and README; render seed and operations SQL"]
     X --> J["judge<br/>LLM: compare artifacts with design"]
     J --> P["publish<br/>write artifacts and qa-report"]
     P --> Z(["Run complete"])
@@ -186,9 +187,9 @@ flowchart LR
 | Stage      | Kind              | What it produces and checks                                                            |
 | ---------- | ----------------- | -------------------------------------------------------------------------------------- |
 | `design`   | model, 2 attempts | Checks the tables and PostgreSQL DDL, then renders and parses the Mermaid ER source    |
-| `examples` | model, 2 attempts | Checks seed rows, operations, README structure and links, then renders seed SQL        |
+| `examples` | model, 2 attempts | Checks rows, operations and README, then renders seed and operations SQL               |
 | `judge`    | model, 2 attempts | `Judge` JSON; must report `matches: true` with no problems, or the answer is corrected |
-| `publish`  | deterministic     | Writes the four deliverables from the checked data plus a passing `qa-report.json`     |
+| `publish`  | deterministic     | Writes the five checkpointed artifacts plus a passing `qa-report.json`                 |
 
 An unusable answer is sent back to the model once with the exact rejection and a
 request to return matching JSON. The client owns transport retries; provider
@@ -204,7 +205,7 @@ succeed.
 | Object     | Shape and constraints                                                                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Design`   | `title` (≥3 chars), `summary` (≥20 chars), `assumptions` (1–6 strings), `features` (2–8 strings), `tables` (2–8), `ddl` (string); the generator adds `mermaid` |
-| `Examples` | `tables` (every design table once, in order, 2–5 rows each), `operations` (2–12), `readme` (string); the generator adds `seedSql`                              |
+| `Examples` | `tables` (every design table once, in order, 2–5 rows each), `operations` (2–12), `readme` (string); the generator adds `seedSql` and `operationsSql`          |
 | `Judge`    | `matches` (boolean), `problems` (array of strings)                                                                                                             |
 
 A table has a `name`, `comment`, `checks` (always empty), `indexes` and at least
@@ -311,7 +312,7 @@ data and operations of the `Examples` object are:
 }
 ```
 
-The judge reviews all four artifacts against these checked objects:
+The judge reviews the DDL, seed SQL, operations, diagram and README against these checked objects:
 
 ```json
 { "matches": true, "problems": [] }
@@ -334,6 +335,17 @@ values:
 ```sql
 insert into "owners" ("id", "name") values (1, 'Ada'), (2, 'Sam');
 insert into "pets" ("id", "owner_id", "name") values (10, 1, 'Milo'), (11, 2, 'Poppy');
+```
+
+`assets/operations/operations.sql` — the checked statements in order, labeled
+by operation name. Choose an example and supply its named parameters:
+
+```sql
+-- list_pets_by_owner
+SELECT id, owner_id, name FROM pets WHERE owner_id = :owner_id;
+
+-- remove_pet
+DELETE FROM pets WHERE id = :id;
 ```
 
 `assets/diagrams/er.mmd` — the Mermaid source, also embedded in the generated
@@ -440,7 +452,7 @@ table and column names and base types to the design, and the single embedded ER 
 Identifiers must be safe to render unquoted and must not be reserved words.
 Only identifiers, column types and fixed Mermaid syntax enter the ER diagram.
 README links may only point to
-`assets/ddl/schema.sql`, `assets/seed/seed.sql`, `assets/diagrams/er.mmd` or a
+`assets/ddl/schema.sql`, `assets/seed/seed.sql`, `assets/operations/operations.sql`, `assets/diagrams/er.mmd` or a
 fragment; external, absolute and `..` links are rejected.
 
 The stage instructions are separate from the topic and artifact JSON. A passing
@@ -518,7 +530,7 @@ shutdown. The OS releases it when a process exits, including after a crash;
 leave the lock file in place. Resume continues a pending checkpoint without
 repeating completed model calls. If the checkpoint is missing, it starts at
 design on a fresh thread. If publication finished before the manifest was
-finalized, it restores all four files and the QA report from the terminal
+finalized, it restores the generated files and the QA report from the terminal
 checkpoint without calling the model. An unreadable store is an error; restore
 a good backup or start a new run.
 

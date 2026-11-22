@@ -14,11 +14,15 @@ import {
 import { requestJson } from '../../llm';
 import { publishArtifacts, ASSET_PATHS } from './artifacts';
 import { PipelineState } from './pipelineState.schema';
-import { renderDiagram, renderSeedSql } from './renderAssets';
+import {
+  renderDiagram,
+  renderOperationsSql,
+  renderSeedSql,
+} from './renderAssets';
 import { designPrompt, examplesPrompt, judgePrompt } from './prompts';
 import type { PipelineOptions } from './types';
 
-export const GRAPH_VERSION = 13;
+export const GRAPH_VERSION = 14;
 
 async function stage<T>(
   { onEvent }: PipelineOptions,
@@ -86,7 +90,11 @@ export function buildPipeline(options: PipelineOptions) {
           verify: (examples) => verifyExamples(examples, design),
         });
         return {
-          examples: { ...answer, seedSql: renderSeedSql(design, answer) },
+          examples: {
+            ...answer,
+            seedSql: renderSeedSql(design, answer),
+            operationsSql: renderOperationsSql(answer),
+          },
         };
       }),
     )

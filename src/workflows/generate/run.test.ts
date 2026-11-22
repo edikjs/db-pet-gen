@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import { loadConfig } from '../../config';
 import { resumeRun, runGenerate } from './run';
-import { design, FixtureModel } from '../../test-support';
+import { design, FixtureModel, operationsSql } from '../../test-support';
 
 describe('a topic-only generation run', () => {
   let root: string;
@@ -67,11 +67,17 @@ describe('a topic-only generation run', () => {
     expect(readme).toContain('Pet records');
     expect(ddl).toContain('create table "pets"');
     expect(seed).toContain('insert into "owners" ("id", "name")');
+    const operationsPath = 'assets/operations/operations.sql';
+    expect(readme).toContain(`](${operationsPath})`);
+    expect(await readFile(join(run.workspace, operationsPath), 'utf8')).toBe(
+      operationsSql,
+    );
     expect(er).toContain('"owners" ||--o{ "pets" : "owner_id"');
     expect(readme).toContain(`\`\`\`mermaid\n${er}\`\`\``);
     expect(await readdir(join(run.workspace, 'assets'))).toEqual([
       'ddl',
       'diagrams',
+      'operations',
       'seed',
     ]);
     expect(manifest).toMatchObject({

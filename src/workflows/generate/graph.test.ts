@@ -8,6 +8,7 @@ import {
   diagram,
   examples,
   FixtureModel,
+  operationsSql,
   seedSql,
 } from '../../test-support';
 import { buildPipeline, GRAPH_VERSION } from './graph';
@@ -129,7 +130,7 @@ describe('generation graph', () => {
       ['judgeStage', 'publishStage'],
       ['publishStage', '__end__'],
     ]);
-    expect(GRAPH_VERSION).toBe(13);
+    expect(GRAPH_VERSION).toBe(14);
   });
 
   it('asks the model for each generation stage and reports every stage', async () => {
@@ -152,8 +153,8 @@ describe('generation graph', () => {
       });
       expect(model.calls).toEqual(['design', 'examples', 'judge']);
       expect(
-        JSON.parse(String(calls.mock.calls[2][0][1].content)).examples.seedSql,
-      ).toBe(seedSql);
+        JSON.parse(String(calls.mock.calls[2][0][1].content)).examples,
+      ).toMatchObject({ seedSql, operationsSql });
       expect(
         await readFile(join(workspace, 'assets/seed/seed.sql'), 'utf8'),
       ).toBe(seedSql);

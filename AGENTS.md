@@ -28,7 +28,7 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
   SQLite checkpoints.
 - `src/io/workspace.ts` — run paths. Validation lives in `src/shared/validators/`:
   `node-sql-parser` for model-written DDL and operations, and `remark` for
-  Markdown. `src/workflows/generate/renderAssets.ts` renders seed SQL and ER source
+  Markdown. `src/workflows/generate/renderAssets.ts` renders seed SQL, operations SQL and ER source
   from checked data and parses the diagram with Mermaid. A separate model stage reviews all
   artifacts against the checked data.
 - `src/cli/`, `src/index.ts` — Commander CLI, terminal progress, errors.
@@ -52,9 +52,10 @@ values; narrow it there rather than passing it through typed code. Do not
 replace it with `any` or a double assertion.
 
 Model responses provide **structured data**, DDL, operation statements and Markdown.
-Render the ER source from checked tables and seed SQL from checked rows; keep both
+Render the ER source from checked tables, seed SQL from checked rows and operations SQL from checked statements; keep all three
 for review, checkpoint recovery and publication. Operation statements and DDL
-are parsed with `node-sql-parser`; Markdown structure, raw HTML and
+are parsed with `node-sql-parser`; publish the checked operations in order to
+`assets/operations/operations.sql` for the README's “Operations and queries” section. Markdown structure, raw HTML and
 links are checked with `remark`; ER source is parsed with the official Mermaid
 parser. A separate model review compares all generated artifacts with the
 checked design and seed rows. Nothing is executed — do not claim operations were

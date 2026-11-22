@@ -4,6 +4,7 @@ import { validateReadme } from './validateReadme';
 const availablePaths = [
   'assets/ddl/schema.sql',
   'assets/seed/seed.sql',
+  'assets/operations/operations.sql',
   'assets/diagrams/er.mmd',
 ];
 

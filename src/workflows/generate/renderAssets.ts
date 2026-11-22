@@ -5,6 +5,7 @@ import {
   type DataColumn,
   type DataModel,
   type DataTable,
+  type Operations,
   type SeedData,
   type SeedValue,
 } from '../../shared';
@@ -67,4 +68,15 @@ export function renderSeedSql(design: DataModel, seed: SeedData): string {
       return `insert into "${name}" (${fields}) values ${tuples.join(', ')};\n`;
     })
     .join('');
+}
+
+/** Preserve each checked statement and its named parameters in the SQL asset. */
+export function renderOperationsSql({ operations }: Operations): string {
+  return operations
+    .map(({ name, statement }) => {
+      const sql = statement.trimEnd();
+      const terminated = sql.endsWith(';') ? sql : `${sql};`;
+      return `-- ${name}\n${terminated}\n`;
+    })
+    .join('\n');
 }

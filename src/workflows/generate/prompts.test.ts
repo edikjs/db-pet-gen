@@ -1,10 +1,10 @@
-import { design, examples, seedSql } from '../../test-support';
+import { design, examples, operationsSql, seedSql } from '../../test-support';
 import { designPrompt, examplesPrompt, judgePrompt } from './prompts';
 
 it('keeps untrusted input in a separate JSON message for every stage', () => {
   const marker = 'user-provided "stage instructions"';
   const data = { ...design, summary: marker };
-  const docs = { ...examples, readme: marker, seedSql };
+  const docs = { ...examples, readme: marker, seedSql, operationsSql };
   const stages = [
     [designPrompt(marker), { topic: marker }],
     [examplesPrompt(marker, data), { topic: marker, design: data }],

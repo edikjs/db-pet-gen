@@ -28,6 +28,7 @@ export const ExamplesAnswerSchema = SeedDataSchema.merge(
 export type ExamplesAnswer = z.infer<typeof ExamplesAnswerSchema>;
 export const ExamplesSchema = ExamplesAnswerSchema.extend({
   seedSql: z.string().min(1),
+  operationsSql: z.string().min(1),
 });
 
 /** The model review that compares generated SQL with the checked data. */
