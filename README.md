@@ -436,8 +436,9 @@ binding before the statements can run in `psql`.
 
 The model supplies DDL, operation statements and Markdown. The generator renders Mermaid from checked
 tables and parses it before checkpointing the design. A renderer failure stops the stage
-without a corrective model turn. Zod checks seed rows against the designed columns and foreign-key
-values. remark parses the README; micromark supplies the tokens used to check
+without a corrective model turn. Zod checks seed rows against each declared column's type, VARCHAR
+length, integer range and ISO date/timestamp format, plus nullability, keys and foreign-key values.
+remark parses the README; micromark supplies the tokens used to check
 that every code fence closes. Beyond syntax and allowed links, the generator compares parsed DDL
 table and column names and declared types (including `varchar(length)`) to the design, and the single embedded ER diagram to the checked asset.
 

@@ -27,16 +27,19 @@ const pgText = z
   );
 
 export const columnValues = {
-  INTEGER: z.int(),
+  INTEGER: z.int32(),
   BIGINT: z.int(),
-  SMALLINT: z.int(),
+  SMALLINT: z
+    .int32()
+    .min(-(2 ** 15))
+    .max(2 ** 15 - 1),
   REAL: z.number(),
   NUMERIC: z.number(),
   TEXT: pgText,
   VARCHAR: pgText,
   BOOLEAN: z.boolean(),
-  DATE: pgText,
-  TIMESTAMP: pgText,
+  DATE: z.iso.date(),
+  TIMESTAMP: z.iso.datetime(),
 };
 
 const DataColumnSchema = z
@@ -62,6 +65,13 @@ const DataColumnSchema = z
     'Primary key columns cannot be nullable.',
   );
 export type DataColumn = z.infer<typeof DataColumnSchema>;
+
+/** Value schema for one declared column, used when checking model-written rows. */
+export function seedValue(column: DataColumn) {
+  return column.type === 'VARCHAR' && column.length !== null
+    ? pgText.max(column.length)
+    : columnValues[column.type];
+}
 
 const DataIndexSchema = z.object({
   name: Identifier,

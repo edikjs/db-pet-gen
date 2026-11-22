@@ -43,3 +43,22 @@ it('makes the deterministic DDL type contract explicit to design and judge', () 
     'deterministic validation is authoritative',
   );
 });
+
+it('makes the deterministic seed value contract explicit to examples and judge', () => {
+  const examplesInstructions = examplesPrompt('topic', design)[0].content;
+  const judgeInstructions = judgePrompt('topic', design, {
+    ...examples,
+    seedSql,
+    operationsSql,
+  })[0].content;
+
+  expect(examplesInstructions).toContain(
+    'VARCHAR no longer than its declared length',
+  );
+  expect(examplesInstructions).toContain(
+    'TIMESTAMP values are ISO 8601 UTC strings ending in Z',
+  );
+  expect(judgeInstructions).toContain(
+    'Seed value constraints are also checked deterministically',
+  );
+});

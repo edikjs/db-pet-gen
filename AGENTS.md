@@ -84,7 +84,8 @@ run against PostgreSQL.
   The judge handles the remaining semantic review. A seed or diagram render or diagram parse
   failure is a generator error and must not consume a corrective model turn.
 - Validate design keys and references before accepting a design. Seed each
-  design table once in order with 2–5 rows, matching columns, keys and parents.
+  design table once in order with 2–5 rows, matching columns, keys, parents and
+  declared value constraints (VARCHAR length, integer ranges, ISO dates).
 - Each operation is one parsed statement. Compare physical table references
   with the declared design tables after resolving query-local CTEs.
 - Antipattern: pass-through wrappers. Do not create a one-line function that

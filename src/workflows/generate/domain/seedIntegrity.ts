@@ -1,7 +1,7 @@
 import { isEqual, uniqWith } from 'es-toolkit';
 import { z } from 'zod';
 import {
-  columnValues,
+  seedValue,
   type DataColumn,
   type DataModel,
   type DataTable,
@@ -9,51 +9,57 @@ import {
 } from './database.schema';
 import { uniqueKeys } from './designIntegrity';
 
-function seedColumn(
-  { type, nullable, references }: DataColumn,
-  seed: SeedData,
-) {
-  let value: z.ZodType = columnValues[type];
-  if (references) {
-    const parent = seed.tables.find((t) => t.table === references.table);
-    const keys = parent?.rows.map((row) => row[references.column]) ?? [];
-    value = value.pipe(
-      z.literal(keys, {
-        error: `no matching seed row in ${references.table}.${references.column}`,
-      }),
-    );
-  }
-  return nullable ? value.nullable() : value;
+type SeedTable = SeedData['tables'][number];
+
+function columnSchema(column: DataColumn, seed: SeedData) {
+  const base = seedValue(column);
+  const reference = column.references;
+
+  if (!reference) return column.nullable ? base.nullable() : base;
+
+  const { table, column: parentColumn } = reference;
+  const parent = seed.tables.find((item) => item.table === table);
+  const allowed = parent?.rows.map((row) => row[parentColumn]) ?? [];
+  const checked = z.pipe(
+    base,
+    z.literal(
+      allowed.filter((value) => value !== null),
+      { error: `no matching seed row in ${table}.${parentColumn}` },
+    ),
+  );
+  return column.nullable ? checked.nullable() : checked;
 }
 
-function validateRows(
-  table: DataTable,
-  { rows }: SeedData['tables'][number],
-  seed: SeedData,
-): string[] {
+function rowSchema(table: DataTable, seed: SeedData) {
   const shape = Object.fromEntries(
-    table.columns.map((c) => [c.name, seedColumn(c, seed)]),
+    table.columns.map((column) => [column.name, columnSchema(column, seed)]),
   );
-  const result = z.array(z.strictObject(shape)).safeParse(rows);
-  if (!result.success)
-    return [`${table.name}: ${z.prettifyError(result.error)}`];
-  for (const key of uniqueKeys(table)) {
-    // PostgreSQL permits repeated unique keys containing NULL.
-    const tuples = rows
+  return z.array(z.strictObject(shape));
+}
+
+function duplicateKeyProblems(table: DataTable, rows: SeedTable['rows']) {
+  return uniqueKeys(table).flatMap((key) => {
+    const values = rows
       .map((row) => key.map((name) => row[name]))
       .filter((tuple) => !tuple.includes(null));
-    if (uniqWith(tuples, isEqual).length !== tuples.length)
-      return [`${table.name}: duplicate seed key (${key.join(', ')}).`];
-  }
-  return [];
+    return uniqWith(values, isEqual).length === values.length
+      ? []
+      : [`${table.name}: duplicate seed key (${key.join(', ')}).`];
+  });
 }
 
-export function validateSeedData(seed: SeedData, design: DataModel): string[] {
-  const expected = design.tables.map((t) => t.name);
-  const supplied = seed.tables.map((t) => t.table);
+export function validateSeedData(seed: SeedData, design: DataModel) {
+  const expected = design.tables.map(({ name }) => name);
+  const supplied = seed.tables.map(({ table }) => table);
   if (!isEqual(supplied, expected))
     return ['Seed every design table exactly once, in design order.'];
-  return design.tables.flatMap((table, i) =>
-    validateRows(table, seed.tables[i], seed),
-  );
+
+  return design.tables.flatMap((table, index) => {
+    const { rows } = seed.tables[index];
+    const result = rowSchema(table, seed).safeParse(rows);
+    const issues = result.success
+      ? []
+      : [`${table.name}: ${z.prettifyError(result.error)}`];
+    return [...issues, ...duplicateKeyProblems(table, rows)];
+  });
 }
