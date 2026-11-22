@@ -1,10 +1,9 @@
 import { difference, isEqual } from 'es-toolkit';
-import type { Heading, Root } from 'mdast';
+import type { Heading, Nodes } from 'mdast';
 import { toString } from 'mdast-util-to-string';
 import { parse, postprocess, preprocess } from 'micromark';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
-import { EXIT, visit } from 'unist-util-visit';
 
 export const README_SECTIONS: readonly string[] = [
   'Project overview',
@@ -65,11 +64,17 @@ function checkTarget(
   }
 }
 
-function headingIssues(tree: Root): string[] {
-  const headings: Heading[] = [];
-  visit(tree, 'heading', (node) => {
-    headings.push(node);
-  });
+function markdownNodes(root: Nodes): Nodes[] {
+  const nodes: Nodes[] = [];
+  function collect(node: Nodes): void {
+    nodes.push(node);
+    if ('children' in node) node.children.forEach(collect);
+  }
+  collect(root);
+  return nodes;
+}
+
+function headingIssues(headings: Heading[]): string[] {
   const titlesAt = (depth: Heading['depth']) =>
     headings
       .filter((heading) => heading.depth === depth)
@@ -89,29 +94,26 @@ export function validateReadme(
   availablePaths: readonly string[],
   diagram: string,
 ): string[] {
-  const tree = parser.parse(markdown);
-  const issues = headingIssues(tree);
+  const nodes = markdownNodes(parser.parse(markdown));
+  const issues = headingIssues(nodes.filter((n) => n.type === 'heading'));
+  const diagrams = nodes.flatMap((n) =>
+    n.type === 'code' && n.lang === 'mermaid'
+      ? [normalizeDiagram(n.value)]
+      : [],
+  );
   const known = new Set(
     availablePaths.map((path) =>
       path.startsWith('./') ? path.slice(2) : path,
     ),
   );
-  const diagrams: string[] = [];
-  visit(tree, 'code', (node) => {
-    if (node.lang === 'mermaid') diagrams.push(normalizeDiagram(node.value));
-  });
-  visit(tree, 'html', () => {
+  if (nodes.some((n) => n.type === 'html'))
     issues.push('Raw HTML is not allowed.');
-    return EXIT;
-  });
-
   if (hasUnclosedFence(markdown)) issues.push('Unclosed Markdown code fence.');
   if (!isEqual(diagrams, [normalizeDiagram(diagram)]))
     issues.push('Embed exactly one copy of the checked Mermaid ER diagram.');
 
-  visit(tree, ['link', 'image', 'definition'] as const, (node) =>
-    checkTarget(node.url, known, issues),
-  );
+  for (const node of nodes)
+    if ('url' in node) checkTarget(node.url, known, issues);
 
   return issues;
 }

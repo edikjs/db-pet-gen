@@ -35,20 +35,18 @@ describe('README validation', () => {
     ).not.toEqual([]);
   });
 
-  it('rejects unsafe links and raw HTML', () => {
+  it('reports raw HTML and still checks targets nested in a blockquote', () => {
     expect(
       validateReadme(
-        `${readme}\n[external](https://bad.example)\n![image](../secret.png)\n<script>alert(1)</script>\n`,
+        `${readme}\n\n<script>alert(1)</script>\n\n> - [external](https://bad.example)\n> - ![image](../secret.png)\n`,
         availablePaths,
         diagram,
       ),
-    ).toEqual(
-      expect.arrayContaining([
-        'Non-relative README link: https://bad.example',
-        'Non-relative README link: ../secret.png',
-        'Raw HTML is not allowed.',
-      ]),
-    );
+    ).toEqual([
+      'Raw HTML is not allowed.',
+      'Non-relative README link: https://bad.example',
+      'Non-relative README link: ../secret.png',
+    ]);
   });
 
   it('rejects a missing section and an unclosed fence', () => {
