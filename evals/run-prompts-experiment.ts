@@ -10,7 +10,11 @@ import {
   type PromptInput,
 } from './datasets';
 import { createPhoenixClient, ensureDataset } from './providers';
-import { createPromptEvaluators, PromptStagesUnderTest } from './prompts';
+import {
+  createPromptEvaluators,
+  experimentSummary,
+  PromptStagesUnderTest,
+} from './prompts';
 
 async function main(): Promise<void> {
   await runPromptExperiment(loadConfig());
@@ -42,12 +46,7 @@ async function runPromptExperiment(config: AppConfig): Promise<void> {
     setGlobalTracerProvider: false,
   });
 
-  const runs = Object.values(experiment.runs);
-  const failed = runs.filter((run) => run.error).length;
-  console.log(
-    `Done. ${runs.length} run(s), ${failed} failure(s); ` +
-      `${experiment.evaluationRuns?.length ?? 0} evaluation(s).`,
-  );
+  console.log(experimentSummary(experiment));
   console.log(`Phoenix UI: ${config.observability.endpoint}`);
 }
 

@@ -7,9 +7,7 @@ import type { StructuredRequest } from '../../workflows/ports';
 import { messageText, parseJsonObject, unwrapEnvelope } from './answer';
 import { toChatMessages } from './messages';
 import { isRateLimitError, RATE_LIMIT_FAILURE } from './rateLimit';
-import type { ChatTransport } from './types';
-
-type JsonOutcome<T> = { ok: true; data: T } | { ok: false; error: string };
+import type { AttemptObserver, ChatTransport, JsonOutcome } from './types';
 
 async function validateAnswer<T>(
   text: string,
@@ -17,7 +15,7 @@ async function validateAnswer<T>(
 ): Promise<JsonOutcome<T>> {
   const candidate = parseJsonObject(text);
   if (!candidate)
-    return { ok: false, error: 'the answer was not a JSON object' };
+    return { kind: 'schema', error: 'the answer was not a JSON object' };
   const parsed = schema.safeParse(
     unwrapEnvelope(candidate, Object.keys(schema.shape)),
   );
@@ -25,16 +23,24 @@ async function validateAnswer<T>(
     const error = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
       .join('; ');
-    return { ok: false, error };
+    return { kind: 'schema', error };
   }
   const violations = await verify(parsed.data);
-  if (violations.length) return { ok: false, error: violations.join('; ') };
-  return { ok: true, data: parsed.data };
+  if (violations.length)
+    return {
+      kind: 'verification',
+      value: parsed.data,
+      error: violations.join('; '),
+    };
+  return { kind: 'accepted', data: parsed.data };
 }
 
 /** Returns the checked answer, giving a rejected answer one corrective turn. */
 export async function requestJson<T>(
-  request: StructuredRequest<T> & { model: ChatTransport },
+  request: StructuredRequest<T> & {
+    model: ChatTransport;
+    onAttempt?: AttemptObserver;
+  },
 ): Promise<T> {
   const messages: BaseMessage[] = toChatMessages(request.messages);
   let rejection: string;
@@ -46,13 +52,25 @@ export async function requestJson<T>(
       rejection = isRateLimitError(modelError)
         ? RATE_LIMIT_FAILURE
         : 'The provider request failed; check the local client diagnostic.';
+      request.onAttempt?.(request.stage, {
+        kind: 'transport',
+        error: rejection,
+      });
       break;
     }
 
     const answer = await validateAnswer(text, request);
-    if (answer.ok) return answer.data;
+    if (answer.kind === 'accepted') {
+      request.onAttempt?.(request.stage, { kind: 'accepted' });
+      return answer.data;
+    }
+    request.onAttempt?.(request.stage, answer);
     rejection = answer.error;
-    if (attempt === 2) break;
+    if (
+      attempt === 2 ||
+      (answer.kind === 'verification' && request.retryViolations === false)
+    )
+      break;
 
     messages.push(
       new AIMessage(text),

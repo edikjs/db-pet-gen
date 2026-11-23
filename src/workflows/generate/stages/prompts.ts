@@ -12,6 +12,7 @@ assumptions (1-6 short strings), features (2-8 short strings), tables (2-8 objec
 Describe only this project; no citations or claims of a running application.
 
 Each table: name (snake_case), comment (English), columns (nonempty), checks:[], indexes:[].
+CHECK constraints are unsupported: always return "checks": [] and omit CHECK clauses from ddl.
 Each column: name, type (${Object.keys(columnValues).join('|')}), primaryKey:boolean,
 nullable:boolean, unique:boolean, length:number|null,
 defaultValue: JSON scalar or null (not SQL text),
@@ -38,8 +39,9 @@ export function examplesPrompt(topic: string, design: Design) {
   return stageMessages(
     `STAGE:examples
 Create realistic sample data and useful data operations for the supplied topic and design.
-Return one English JSON object: tables (every design table in order, 2-5 rows each,
-valid keys and cross-table references), operations (2-12 useful operations), readme.
+Return one English JSON object with tables, operations and readme. Seed each design
+table once in design order. Aim for 3 rows per table and 4 useful operations total
+for the whole project (allowed: 2-5 rows per table, 2-12 operations total).
 
 Each seed table: {"table":"<table name>","rows":[{"column":value}]}.
 Include every design column in every row, even nullable or defaulted columns.
@@ -49,17 +51,26 @@ BOOLEAN: booleans; TEXT/VARCHAR: strings, with VARCHAR no longer than its declar
 DATE values are YYYY-MM-DD strings and TIMESTAMP values are ISO 8601 UTC strings ending in Z.
 No SQL syntax in values.
 
-Each operation: {"name":"snake_case","title":"English description","tables":["table"],
-"parameters":["name"],"statement":"one SELECT, INSERT, UPDATE or DELETE statement"}.
-Named parameters :name need not be columns; each must appear in the SQL,
-with no undeclared parameters. No semicolons, comments or DDL.
-Mention every listed table and no others.
+For each operation, write one standalone SELECT, INSERT, UPDATE or DELETE first.
+Use simple PostgreSQL with no semicolons, comments or DDL. Then derive tables
+from the physical tables the statement actually reads or writes, not aliases,
+CTE names or tables merely related by a foreign key. Derive parameters from
+the :placeholders, listing each name once without its colon (or [] if none).
+Use lowercase snake_case names that are not SQL or JavaScript keywords.
+Example shape (adapt to the supplied design):
+{"name":"list_orders_by_customer","title":"List orders for one customer",
+"statement":"SELECT order_id FROM orders WHERE customer_id = :target_customer_id",
+"tables":["orders"],"parameters":["target_customer_id"]}.
 
 readme: complete project README with a top-level title and these level-two sections:
 ${README_SECTIONS.join(', ')}.
+Use exact table names instead of stating a table count.
+In "Sample data", name each seeded table and walk through a row using an actual seed value.
 In "Operations and queries", link to [Operation SQL](${OPERATIONS_PATH})
-and describe the operations and parameters. Embed the exact checked Mermaid source
+and give one entry per operation with its exact name, purpose and every :parameter
+it uses. Embed the exact checked Mermaid source
 in one mermaid fence and include the "### ${README_FALLBACK}" subsection.
+In that subsection, name the child and parent of each foreign key and explain their relationship.
 Link only to ${ASSET_PATHS.join(', ')}; no raw HTML, external links or images.`,
     { topic, design },
   );

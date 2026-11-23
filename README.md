@@ -184,12 +184,12 @@ flowchart LR
     J -. on error .-> F
 ```
 
-| Stage      | Kind              | What it produces and checks                                                            |
-| ---------- | ----------------- | -------------------------------------------------------------------------------------- |
-| `design`   | model, 2 attempts | Checks the tables and PostgreSQL DDL, then renders and parses the Mermaid ER source    |
-| `examples` | model, 2 attempts | Checks rows, operations and README, then renders seed and operations SQL               |
-| `judge`    | model, 2 attempts | `Judge` JSON; must report `matches: true` with no problems, or the answer is corrected |
-| `publish`  | deterministic     | Writes the five checkpointed artifacts plus a passing `qa-report.json`                 |
+| Stage      | Kind                    | What it produces and checks                                                                                                    |
+| ---------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `design`   | model, 2 attempts       | Checks the tables and PostgreSQL DDL, then renders and parses the Mermaid ER source                                            |
+| `examples` | model, 2 attempts       | Checks rows, operations and README, then renders seed and operations SQL                                                       |
+| `judge`    | model, up to 2 attempts | Malformed verdicts get one corrective turn. A valid verdict reporting a mismatch or any problem stops publication immediately. |
+| `publish`  | deterministic           | Writes the five checkpointed artifacts plus a passing `qa-report.json`                                                         |
 
 An unusable answer is sent back to the model once with the exact rejection and a
 request to return matching JSON. The client owns transport retries; provider
@@ -576,18 +576,24 @@ npm run eval:prompts
 ```
 
 `evals/datasets/prompts.json` holds the fixed topics. Each model call is logged
-with the gate that rejected it, so the code evaluators measure prompt quality
+with the gate and redacted validation message for each rejection, so the code evaluators measure prompt quality
 rather than re-checking gates that already passed:
 
 - `design_first_try`, `examples_first_try`, `judge_first_try` — was the first
-  model call accepted, per stage?
-- `rejection_reasons` — which gate rejected the first attempts (`schema`, `ddl`,
+  model call accepted, per stage? `first_attempt_rejected` includes both recovered
+  and terminal rejections; `not_run` is excluded from the average.
+- `rejection_reasons` — which gates rejected attempts (`schema`, `ddl`,
   `seed`, `readme`, `operations`, `judge`, `transport`)? Its label is the
   dominant reason, so Phoenix can group experiments by what needs fixing.
 - `pipeline_completion` — did the topic reach all three accepted stages and
   publish the six expected artifacts into a recording sink?
 - `readme_substance` — do the sections carry content and name the checked
   tables, seed rows, operations, parameters and relationships?
+
+The final CLI summary separates harness errors from projects published and lists
+the stopping stage and error for each unpublished topic. Compare publication
+first, then first-try acceptance among topics reaching a stage and README
+substance among topics producing a README.
 
 Prompts stay in `src/`; Phoenix stores only topics and outcomes. The evaluation
 calls the configured model once per stage and topic, plus any corrective turn,

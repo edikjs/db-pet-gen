@@ -55,12 +55,13 @@ every layer may import; keep domain rules in the core instead.
 `evals/` is the dev-only Phoenix harness: `evals/datasets/` holds the topics,
 `evals/prompts/` drives the real stages, logs the gate that rejected each model
 call, publishes into a recording sink and scores first-try acceptance, rejection
-reasons, artifact completeness and README substance. `evals/providers/` talks to
+reasons (including redacted validator messages), artifact completeness and README substance.
+The CLI distinguishes harness errors from unpublished topics and shows their stopping errors. `evals/providers/` talks to
 Phoenix. It compiles to `dist-evals/` and is never imported by `src/`; use
 `@arizeai/phoenix-client` for experiments rather than hand-rolled HTTP.
 
 A separate model stage reviews all generated artifacts against the checked
-data.
+data. Malformed verdicts may be corrected; a valid negative review stops publication.
 
 Before implementing a common concern (parsing, validation, collections,
 redaction, and similar), check npm first. Prefer a popular, well-maintained

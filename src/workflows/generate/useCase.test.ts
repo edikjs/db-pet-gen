@@ -239,7 +239,7 @@ describe('a topic-only generation run', () => {
     await expect(
       workflowFor(root, model).generate({ topic: 'Pet records' }),
     ).rejects.toThrow('Missing constraint');
-    expect(reviews).toBe(2);
+    expect(reviews).toBe(1);
     const [runId] = await readdir(root);
     expect(await readdir(join(root, runId))).not.toContain('README.md');
     expect(

@@ -1,17 +1,7 @@
 import { asExperimentEvaluator } from '@arizeai/phoenix-client/experiments';
-import {
-  ASSET_PATHS,
-  QA_REPORT_PATH,
-  README_PATH,
-} from '../../src/workflows/generate/domain';
+import { EXPECTED_ARTIFACTS, missingArtifacts, outcomeOf } from './outcome';
 import { readmeSubstance } from './readmeSubstance';
-import {
-  STAGE_NAMES,
-  type PromptRunOutcome,
-  type RejectionReason,
-} from './types';
-
-const EXPECTED_ARTIFACTS = [...ASSET_PATHS, README_PATH, QA_REPORT_PATH];
+import { STAGE_NAMES, type RejectionReason } from './types';
 
 /**
  * Gate checks are reported as failure diagnostics, not scores: an accepted run
@@ -41,8 +31,8 @@ export function createPromptEvaluators() {
             )
           : verdict(
               0,
-              'corrected',
-              `${stage} was rejected first: ${reasons.join(', ')}.`,
+              'first_attempt_rejected',
+              `${stage} rejected first (${reasons.join(', ')}): ${attempts[0].detail ?? 'No detail recorded.'}`,
             );
       },
     }),
@@ -84,8 +74,7 @@ export function createPromptEvaluators() {
     evaluate: ({ output }) => {
       const outcome = outcomeOf(output);
       if (!outcome) return noOutput();
-      const published = new Set(outcome.published);
-      const missing = EXPECTED_ARTIFACTS.filter((path) => !published.has(path));
+      const missing = missingArtifacts(outcome);
       const failedStages = STAGE_NAMES.filter(
         (stage) => !outcome.stages[stage].accepted,
       );
@@ -145,10 +134,4 @@ function verdict(score: number, label: string, explanation: string) {
 
 function noOutput() {
   return verdict(0, 'no_output', 'The task returned no usable output.');
-}
-
-function outcomeOf(output: unknown): PromptRunOutcome | null {
-  return output && typeof output === 'object'
-    ? (output as PromptRunOutcome)
-    : null;
 }

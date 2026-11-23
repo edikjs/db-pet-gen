@@ -19,5 +19,6 @@ export async function runJudge(
     messages: judgePrompt(topic, design, examples),
     schema: JudgeSchema,
     verify: judgeViolations,
+    retryViolations: false,
   });
 }

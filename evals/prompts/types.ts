@@ -9,6 +9,7 @@ export type RejectionReason =
 
 export interface StageAttempt {
   readonly reasons: readonly RejectionReason[];
+  readonly detail?: string;
 }
 
 export interface StageRun {

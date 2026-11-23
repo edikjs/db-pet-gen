@@ -23,6 +23,8 @@ export interface StructuredRequest<T> {
   messages: PromptMessage[];
   schema: z.ZodType<T> & Pick<z.ZodObject, 'shape'>;
   verify: (value: T) => string[] | Promise<string[]>;
+  /** A valid review of faulty artifacts cannot be fixed by rewriting the verdict. */
+  retryViolations?: boolean;
 }
 
 /** The model settings a resumed run must match. */

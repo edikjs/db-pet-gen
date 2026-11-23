@@ -53,6 +53,32 @@ describe('requestJson', () => {
     });
   });
 
+  it('preserves the schema error and the final verification error on separate attempts', async () => {
+    const onAttempt = jest.fn();
+    await expect(
+      requestJson({
+        stage: 'judge',
+        model: createTransport(['{"value":"bad"}', '{"value":2}']),
+        messages: [],
+        schema: AnswerSchema,
+        verify: () => ['The README contradicts the design.'],
+        retryViolations: false,
+        onAttempt,
+      }),
+    ).rejects.toThrow('The README contradicts the design.');
+    expect(onAttempt.mock.calls).toEqual([
+      ['judge', { kind: 'schema', error: expect.stringContaining('value:') }],
+      [
+        'judge',
+        {
+          kind: 'verification',
+          error: 'The README contradicts the design.',
+          value: { value: 2 },
+        },
+      ],
+    ]);
+  });
+
   it.each(['gsk_synthetic', 'opk_synthetic'])(
     'keeps echoed %s out of the conversation and diagnostics',
     async (apiKey) => {
