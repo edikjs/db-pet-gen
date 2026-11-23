@@ -7,10 +7,13 @@ scripts, and an ER diagram inside `artifacts/runs/<run-id>/`.
 ## Commands
 
 - `npm run build` — compile `src/` into `dist/` (run before `npm start`).
+- `npm run build:evals` — compile `src/` + `evals/` into `dist-evals/`.
 - `npm run typecheck` — check production code and colocated test typings.
 - `npm start -- generate "..."` — provider and model come from `.env`.
 - `npm start -- resume <run-id>` — retry an interrupted/failed run with the
   original model settings in `.env`.
+- `npm run eval:prompts` — Phoenix experiment over the three staged prompts
+  (builds evals first; calls the configured model and needs Phoenix running).
 - `npm run lint:check && npm run format:check && npm test` — verification.
 - `npm run phoenix:up` / `npm run phoenix:down` — optional tracing container.
 
@@ -48,6 +51,13 @@ every layer may import; keep domain rules in the core instead.
 - `src/cli/` — Commander driving adapter; calls the `GenerateWorkflow` port.
 - `src/config/` — validated model/run/tracing config from `.env`.
 - `src/index.ts` — builds the adapters and injects them into the use case and CLI.
+
+`evals/` is the dev-only Phoenix harness: `evals/datasets/` holds the topics,
+`evals/prompts/` drives the real stages, logs the gate that rejected each model
+call, publishes into a recording sink and scores first-try acceptance, rejection
+reasons, artifact completeness and README substance. `evals/providers/` talks to
+Phoenix. It compiles to `dist-evals/` and is never imported by `src/`; use
+`@arizeai/phoenix-client` for experiments rather than hand-rolled HTTP.
 
 A separate model stage reviews all generated artifacts against the checked
 data.
@@ -107,8 +117,9 @@ unused exports in implementation files, `types.ts` files or `index.ts` barrels.
 
 Use `index.ts` barrels for cross-folder imports; tests live beside their
 implementation. Never log API keys. Keep the root `README.md` and this file aligned with
-behavior. Finish changes with `npm run build && npm run typecheck &&
-npm run lint:check && npm run format:check && npm test`. Tests are colocated
+behavior. Finish changes with `npm run build && npm run build:evals &&
+npm run typecheck && npm run lint:check && npm run format:check && npm test`.
+Tests are colocated
 (`foo.test.ts`).
 Prettier uses single quotes (`.prettierrc.json`); Jest transforms ESM-only
 dependencies through `ts-jest`.

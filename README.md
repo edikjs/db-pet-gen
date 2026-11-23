@@ -564,8 +564,38 @@ returns a callback that receives `'ok'` or `'error'`; `shutdown()` flushes the
 provider when the run ends. The built-in Phoenix implementation lives in
 `src/adapters/observability/providers/phoenix/`.
 
+### Prompt evaluation
+
+The three staged prompts can be compared over a fixed set of topics in Phoenix.
+The dev-only harness in `evals/` runs the real `design`, `examples` and `judge`
+stages through the configured model and records the outcome as an experiment:
+
+```sh
+npm run phoenix:up
+npm run eval:prompts
+```
+
+`evals/datasets/prompts.json` holds the fixed topics. Each model call is logged
+with the gate that rejected it, so the code evaluators measure prompt quality
+rather than re-checking gates that already passed:
+
+- `design_first_try`, `examples_first_try`, `judge_first_try` — was the first
+  model call accepted, per stage?
+- `rejection_reasons` — which gate rejected the first attempts (`schema`, `ddl`,
+  `seed`, `readme`, `operations`, `judge`, `transport`)? Its label is the
+  dominant reason, so Phoenix can group experiments by what needs fixing.
+- `pipeline_completion` — did the topic reach all three accepted stages and
+  publish the six expected artifacts into a recording sink?
+- `readme_substance` — do the sections carry content and name the checked
+  tables, seed rows, operations, parameters and relationships?
+
+Prompts stay in `src/`; Phoenix stores only topics and outcomes. The evaluation
+calls the configured model once per stage and topic, plus any corrective turn,
+and writes no run artifacts.
+
 ```sh
 npm run build
+npm run build:evals
 npm run typecheck
 npm run lint:check
 npm run format:check
@@ -608,9 +638,15 @@ src/
     artifacts/              Writes the checked files into a run
     observability/          Stage tracing and pluggable providers
     testing/                Offline fixture and fake model
+evals/
+  datasets/                 Topics for the prompt experiment
+  prompts/                  Stage driver and code evaluators
+  providers/                Phoenix client and dataset setup
+  run-prompts-experiment.ts Experiment entry point
 ```
 
-Each module has an `index.ts` barrel and colocated tests.
+Each `src/` module has an `index.ts` barrel and colocated tests. The eval harness
+compiles separately to `dist-evals/` and is never imported by production code.
 
 ## Limits and guarantees
 

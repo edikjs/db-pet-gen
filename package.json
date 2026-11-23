@@ -6,13 +6,15 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "build:evals": "tsc -p tsconfig.evals.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "jest --runInBand",
-    "lint:check": "eslint src --max-warnings=0",
-    "format:check": "prettier --check src README.md AGENTS.md",
-    "lint": "eslint src --fix",
-    "format": "prettier --write src README.md AGENTS.md",
+    "eval:prompts": "npm run build:evals && node dist-evals/evals/run-prompts-experiment.js",
+    "lint:check": "eslint src evals --max-warnings=0",
+    "format:check": "prettier --check src evals README.md AGENTS.md",
+    "lint": "eslint src evals --fix",
+    "format": "prettier --write src evals README.md AGENTS.md",
     "phoenix:up": "docker compose up -d phoenix",
     "phoenix:down": "docker compose down",
     "prepare": "git config --local core.hooksPath .githooks"
@@ -44,6 +46,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@arizeai/phoenix-client": "^7.18.2",
     "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
     "@types/mdast": "^4.0.4",

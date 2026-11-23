@@ -7,8 +7,8 @@ export default [
   ...tseslint.configs.recommended,
   prettier,
   {
-    files: ['src/**/*.ts'],
-    ignores: ['src/**/*.test.ts', 'src/test-support/**'],
+    files: ['src/**/*.ts', 'evals/**/*.ts'],
+    ignores: ['src/**/*.test.ts', 'evals/**/*.test.ts', 'src/test-support/**'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -22,7 +22,7 @@ export default [
     },
   },
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'evals/**/*.ts'],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly' },
     },

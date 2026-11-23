@@ -1,0 +1,14 @@
+{
+  "name": "db-pet-gen-staged-prompts",
+  "description": "Topics used to compare the design, examples and judge prompts across experiments.",
+  "examples": [
+    { "input": { "topic": "Pet records" } },
+    { "input": { "topic": "Public library lending" } },
+    { "input": { "topic": "University course enrollments" } },
+    { "input": { "topic": "Recipe collection" } },
+    { "input": { "topic": "Small invoice tracking" } },
+    { "input": { "topic": "Hiking trail log" } },
+    { "input": { "topic": "Board game collection" } },
+    { "input": { "topic": "Community garden plots" } }
+  ]
+}
